@@ -109,14 +109,16 @@
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- Inisialisasi Peta & Basemaps ---
+        // --- Inisialisasi Peta & Basemaps dengan maxNativeZoom untuk menghindari eror ubin ---
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
+            maxZoom: 21,
+            maxNativeZoom: 19,
             attribution: '&copy; OpenStreetMap contributors'
         });
 
         const earthLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19,
+            maxZoom: 21,
+            maxNativeZoom: 19,
             attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
         });
 
@@ -168,7 +170,7 @@
             } else {
                 adminSection.style.display = 'none';
                 currentUserLabel.innerText = 'Surveyor Lapangan';
-                isAddingMarker = false;
+                // Surveyor sekarang bebas menggunakan tombol tambah titik manual tanpa diblokir role
             }
         }
         roleSelector.addEventListener('change', updateRoleUI);
@@ -213,8 +215,6 @@
                 if (fileName.toLowerCase().endsWith('.kmz')) {
                     const zip = new JSZip();
                     const zipContent = await zip.loadAsync(file);
-                    
-                    // Mencari semua file KML di dalam KMZ (termasuk folder berlapis)
                     let kmlFilename = Object.keys(zipContent.files).find(fn => fn.toLowerCase().endsWith('.kml'));
                     if (!kmlFilename) {
                         alert('File KML tidak ditemukan di dalam arsip KMZ!');
@@ -254,7 +254,7 @@
             }
         });
 
-        // --- Load Boundary & SELURUH Item GeoJSON ke Peta ---
+        // --- Load Boundary & Semua Item GeoJSON ke Peta (Point KMZ diubah menjadi Titik Marker Standar) ---
         async function loadBoundaryToMap(boundaryId) {
             currentLayerGroup.clearLayers();
             if (!boundaryId) {
@@ -270,7 +270,6 @@
                 .single();
             
             if (data && data.geojson) {
-                // Pemetaan menyeluruh untuk Point, LineString, Polygon, dan MultiGeometry
                 const layer = L.geoJSON(data.geojson, {
                     style: function(feature) {
                         const geomType = feature.geometry ? feature.geometry.type : '';
@@ -281,6 +280,7 @@
                         }
                     },
                     pointToLayer: function(feature, latlng) {
+                        // Titik point dari KMZ dirender sebagai marker standar
                         const props = feature.properties || {};
                         const title = props.name || props.title || 'Titik KMZ';
                         const desc = props.description || '';
@@ -394,7 +394,7 @@
             }
         };
 
-        // --- Tambah Objek via Klik Peta ---
+        // --- Tambah Objek via Klik Peta (Diizinkan untuk Admin & Surveyor) ---
         const btnAddMarker = document.getElementById('btn-add-marker');
         btnAddMarker.addEventListener('click', () => {
             isAddingMarker = !isAddingMarker;
@@ -415,7 +415,12 @@
             }
 
             const title = prompt('Masukkan nama/keterangan objek survey:', 'Objek Survey Baru');
-            if (!title) return;
+            if (!title) {
+                isAddingMarker = false;
+                btnAddMarker.classList.remove('bg-emerald-800');
+                btnAddMarker.innerText = '+ Titik Manual';
+                return;
+            }
 
             const newObj = {
                 id: 'obj_' + Date.now(),
