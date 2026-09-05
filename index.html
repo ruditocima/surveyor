@@ -74,7 +74,7 @@
                     <button id="btn-add-marker" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-2 rounded font-medium">+ Titik Manual</button>
                     <button id="btn-export-kmz" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 px-2 rounded font-medium">📥 Export KMZ</button>
                 </div>
-                <p class="text-[11px] text-gray-400 mt-2">Gunakan tombol '+ Titik Manual' lalu klik peta, atau gunakan ikon <b>Lokasi Saya</b> di pojok kanan bawah peta.</p>
+                <p class="text-[11px] text-gray-400 mt-2">Pilih boundary, klik '+ Titik Manual', lalu klik di dalam area peta.</p>
             </div>
 
             <!-- Object List -->
@@ -90,7 +90,7 @@
         <main class="flex-1 relative">
             <div id="map" class="w-full h-full"></div>
 
-            <!-- Floating Action Button: Lokasi Saya (Sudut Kanan Bawah) -->
+            <!-- Floating Action Button: Lokasi Saya -->
             <button id="btn-my-location" class="absolute bottom-6 right-6 bg-white hover:bg-gray-100 text-blue-600 font-bold p-3 rounded-full shadow-2xl z-[400] flex items-center justify-center border border-gray-300 transition transform hover:scale-105" title="Lokasi Saya & Tambah Titik GPS">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -109,15 +109,15 @@
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- Inisialisasi Peta & Basemaps dengan maxNativeZoom untuk menghindari eror ubin ---
+        // --- Inisialisasi Peta & Basemaps (Mengatasi Error Zoom & Tile Not Available) ---
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 21,
+            maxZoom: 19,
             maxNativeZoom: 19,
             attribution: '&copy; OpenStreetMap contributors'
         });
 
         const earthLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 21,
+            maxZoom: 19,
             maxNativeZoom: 19,
             attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
         });
@@ -142,7 +142,7 @@
         let isAddingMarker = false;
         let userLocationMarker = null;
 
-        // Cek status koneksi Supabase & Indikator Live Sync
+        // Cek status koneksi Supabase
         const syncStatusEl = document.getElementById('sync-status');
         async function checkSupabaseConnection() {
             try {
@@ -170,7 +170,6 @@
             } else {
                 adminSection.style.display = 'none';
                 currentUserLabel.innerText = 'Surveyor Lapangan';
-                // Surveyor sekarang bebas menggunakan tombol tambah titik manual tanpa diblokir role
             }
         }
         roleSelector.addEventListener('change', updateRoleUI);
@@ -254,7 +253,7 @@
             }
         });
 
-        // --- Load Boundary & Semua Item GeoJSON ke Peta (Point KMZ diubah menjadi Titik Marker Standar) ---
+        // --- Load Boundary & GeoJSON Items (Titik KMZ menjadi Marker Standar) ---
         async function loadBoundaryToMap(boundaryId) {
             currentLayerGroup.clearLayers();
             if (!boundaryId) {
@@ -280,7 +279,7 @@
                         }
                     },
                     pointToLayer: function(feature, latlng) {
-                        // Titik point dari KMZ dirender sebagai marker standar
+                        // Menggunakan titik marker standar Leaflet untuk Point KMZ
                         const props = feature.properties || {};
                         const title = props.name || props.title || 'Titik KMZ';
                         const desc = props.description || '';
@@ -394,9 +393,15 @@
             }
         };
 
-        // --- Tambah Objek via Klik Peta (Diizinkan untuk Admin & Surveyor) ---
+        // --- Tambah Objek via Klik Peta (Terbuka untuk Admin & Surveyor) ---
         const btnAddMarker = document.getElementById('btn-add-marker');
         btnAddMarker.addEventListener('click', () => {
+            const boundaryId = document.getElementById('boundary-select').value;
+            if (!boundaryId) {
+                alert('Pilih area boundary terlebih dahulu di panel sebelah kiri!');
+                return;
+            }
+
             isAddingMarker = !isAddingMarker;
             btnAddMarker.classList.toggle('bg-emerald-800', isAddingMarker);
             btnAddMarker.innerText = isAddingMarker ? 'Klik di Peta...' : '+ Titik Manual';
