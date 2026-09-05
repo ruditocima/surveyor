@@ -77,7 +77,8 @@
                     <button id="btn-add-marker" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-2 rounded font-medium">+ Titik Manual</button>
                     <button id="btn-export-kmz" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 px-2 rounded font-medium">📥 Export KMZ</button>
                 </div>
-                <p class="text-[11px] text-gray-400 mt-2">Pilih boundary, klik tombol '+ Titik Manual' (kursor berubah jadi bidikan), lalu klik di dalam peta.</p>
+                <div id="mode-status" class="mt-2 text-[11px] font-semibold text-emerald-600 hidden">⚡ Mode Tambah Titik Aktif: Klik di peta untuk menyimpan titik.</div>
+                <p class="text-[11px] text-gray-400 mt-1">Pilih boundary, klik '+ Titik Manual', lalu klik di dalam area peta.</p>
             </div>
 
             <!-- Object List -->
@@ -112,17 +113,17 @@
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- Inisialisasi Peta & Basemaps (Mengatasi Error "Map data not yet available") ---
+        // --- Inisialisasi Peta & Basemaps (Optimasi maxZoom & maxNativeZoom ke 19 untuk hindari tile error) ---
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 21,
+            maxZoom: 19,
             maxNativeZoom: 19,
             attribution: '&copy; OpenStreetMap contributors'
         });
 
         const earthLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 21,
+            maxZoom: 19,
             maxNativeZoom: 19,
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            attribution: 'Tiles &copy; Esri'
         });
 
         const map = L.map('map', {
@@ -145,7 +146,6 @@
         let isAddingMarker = false;
         let userLocationMarker = null;
 
-        // Cek status koneksi Supabase
         const syncStatusEl = document.getElementById('sync-status');
         async function checkSupabaseConnection() {
             try {
@@ -201,62 +201,64 @@
 
         // --- KMZ Upload & Simpan ke Supabase ---
         const uploadBtn = document.getElementById('upload-btn');
-        uploadBtn.addEventListener('click', async () => {
-            const fileInput = document.getElementById('kmz-file-input');
-            if (fileInput.files.length === 0) {
-                alert('Silakan pilih file KMZ atau KML terlebih dahulu!');
-                return;
-            }
-
-            const file = fileInput.files[0];
-            const fileName = file.name;
-            uploadBtn.innerText = 'Memproses...';
-
-            try {
-                let kmlText = '';
-                if (fileName.toLowerCase().endsWith('.kmz')) {
-                    const zip = new JSZip();
-                    const zipContent = await zip.loadAsync(file);
-                    let kmlFilename = Object.keys(zipContent.files).find(fn => fn.toLowerCase().endsWith('.kml'));
-                    if (!kmlFilename) {
-                        alert('File KML tidak ditemukan di dalam arsip KMZ!');
-                        uploadBtn.innerText = 'Proses & Simpan ke Supabase';
-                        return;
-                    }
-                    kmlText = await zipContent.files[kmlFilename].async('text');
-                } else {
-                    kmlText = await file.text();
+        if (uploadBtn) {
+            uploadBtn.addEventListener('click', async () => {
+                const fileInput = document.getElementById('kmz-file-input');
+                if (fileInput.files.length === 0) {
+                    alert('Silakan pilih file KMZ atau KML terlebih dahulu!');
+                    return;
                 }
 
-                const dom = new DOMParser().parseFromString(kmlText, 'text/xml');
-                const convertedGeoJSON = toGeoJSON.kml(dom);
+                const file = fileInput.files[0];
+                const fileName = file.name;
+                uploadBtn.innerText = 'Memproses...';
 
-                const boundaryId = 'b_' + Date.now();
-                const newBoundary = {
-                    id: boundaryId,
-                    name: fileName,
-                    geojson: convertedGeoJSON
-                };
+                try {
+                    let kmlText = '';
+                    if (fileName.toLowerCase().endsWith('.kmz')) {
+                        const zip = new JSZip();
+                        const zipContent = await zip.loadAsync(file);
+                        let kmlFilename = Object.keys(zipContent.files).find(fn => fn.toLowerCase().endsWith('.kml'));
+                        if (!kmlFilename) {
+                            alert('File KML tidak ditemukan di dalam arsip KMZ!');
+                            uploadBtn.innerText = 'Proses & Simpan ke Supabase';
+                            return;
+                        }
+                        kmlText = await zipContent.files[kmlFilename].async('text');
+                    } else {
+                        kmlText = await file.text();
+                    }
 
-                const { error } = await supabaseClient.from('boundaries').insert([newBoundary]);
-                if (error) throw error;
+                    const dom = new DOMParser().parseFromString(kmlText, 'text/xml');
+                    const convertedGeoJSON = toGeoJSON.kml(dom);
 
-                alert('File KMZ berhasil diunggah dan disimpan ke Supabase!');
-                fileInput.value = '';
-                await loadBoundaries();
-                
-                document.getElementById('boundary-select').value = boundaryId;
-                loadBoundaryToMap(boundaryId);
+                    const boundaryId = 'b_' + Date.now();
+                    const newBoundary = {
+                        id: boundaryId,
+                        name: fileName,
+                        geojson: convertedGeoJSON
+                    };
 
-            } catch (error) {
-                console.error(error);
-                alert('Gagal memproses file KMZ/KML ke Supabase.');
-            } finally {
-                uploadBtn.innerText = 'Proses & Simpan ke Supabase';
-            }
-        });
+                    const { error } = await supabaseClient.from('boundaries').insert([newBoundary]);
+                    if (error) throw error;
 
-        // --- Load Boundary & GeoJSON Items (Titik KMZ menjadi Marker Standar) ---
+                    alert('File KMZ berhasil diunggah dan disimpan ke Supabase!');
+                    fileInput.value = '';
+                    await loadBoundaries();
+                    
+                    document.getElementById('boundary-select').value = boundaryId;
+                    loadBoundaryToMap(boundaryId);
+
+                } catch (error) {
+                    console.error(error);
+                    alert('Gagal memproses file KMZ/KML ke Supabase.');
+                } finally {
+                    uploadBtn.innerText = 'Proses & Simpan ke Supabase';
+                }
+            });
+        }
+
+        // --- Load Boundary & GeoJSON Items ---
         async function loadBoundaryToMap(boundaryId) {
             currentLayerGroup.clearLayers();
             if (!boundaryId) {
@@ -295,20 +297,6 @@
                             </div>
                         `);
                         return marker;
-                    },
-                    onEachFeature: function(feature, layer) {
-                        const props = feature.properties || {};
-                        const title = props.name || props.title;
-                        const desc = props.description;
-
-                        if (title && feature.geometry && feature.geometry.type !== 'Point') {
-                            layer.bindPopup(`
-                                <div class="text-xs">
-                                    <b>${title}</b>
-                                    ${desc ? '<br>' + desc : ''}
-                                </div>
-                            `);
-                        }
                     }
                 }).addTo(currentLayerGroup);
                 
@@ -395,8 +383,10 @@
             }
         };
 
-        // --- Tambah Objek via Klik Peta (Terbuka untuk Admin & Surveyor) ---
+        // --- Tambah Objek via Klik Peta (Terbuka untuk Surveyor & Admin) ---
         const btnAddMarker = document.getElementById('btn-add-marker');
+        const modeStatus = document.getElementById('mode-status');
+
         btnAddMarker.addEventListener('click', () => {
             const boundaryId = document.getElementById('boundary-select').value;
             if (!boundaryId) {
@@ -408,10 +398,12 @@
             if (isAddingMarker) {
                 btnAddMarker.classList.add('bg-emerald-800');
                 btnAddMarker.innerText = 'Batalkan';
+                modeStatus.classList.remove('hidden');
                 map.getContainer().classList.add('crosshair-cursor-enabled');
             } else {
                 btnAddMarker.classList.remove('bg-emerald-800');
                 btnAddMarker.innerText = '+ Titik Manual';
+                modeStatus.classList.add('hidden');
                 map.getContainer().classList.remove('crosshair-cursor-enabled');
             }
         });
@@ -425,6 +417,7 @@
                 isAddingMarker = false;
                 btnAddMarker.classList.remove('bg-emerald-800');
                 btnAddMarker.innerText = '+ Titik Manual';
+                modeStatus.classList.add('hidden');
                 map.getContainer().classList.remove('crosshair-cursor-enabled');
                 return;
             }
@@ -434,6 +427,7 @@
                 isAddingMarker = false;
                 btnAddMarker.classList.remove('bg-emerald-800');
                 btnAddMarker.innerText = '+ Titik Manual';
+                modeStatus.classList.add('hidden');
                 map.getContainer().classList.remove('crosshair-cursor-enabled');
                 return;
             }
@@ -451,11 +445,14 @@
             const { error } = await supabaseClient.from('survey_objects').insert([newObj]);
             if (error) {
                 alert('Gagal menyimpan objek ke Supabase: ' + error.message);
+            } else {
+                alert('Titik manual berhasil disimpan!');
             }
 
             isAddingMarker = false;
             btnAddMarker.classList.remove('bg-emerald-800');
             btnAddMarker.innerText = '+ Titik Manual';
+            modeStatus.classList.add('hidden');
             map.getContainer().classList.remove('crosshair-cursor-enabled');
             renderObjects();
         });
