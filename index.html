@@ -268,7 +268,7 @@
                 .single();
             
             if (data && data.geojson) {
-                // Merender SELURUH fitur GeoJSON (Polygon, LineString, Point) dari file KMZ secara otomatis
+                // Merender seluruh fitur GeoJSON (Polygon, LineString, Point) dari file KMZ secara otomatis
                 const layer = L.geoJSON(data.geojson, {
                     style: function(feature) {
                         if (feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
