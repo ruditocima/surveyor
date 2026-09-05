@@ -16,6 +16,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         #map { height: calc(100vh - 4rem); }
+        .leaflet-container.crosshair-cursor-enabled {
+            cursor: crosshair !important;
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex flex-col h-screen overflow-hidden">
@@ -74,7 +77,7 @@
                     <button id="btn-add-marker" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-2 rounded font-medium">+ Titik Manual</button>
                     <button id="btn-export-kmz" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 px-2 rounded font-medium">📥 Export KMZ</button>
                 </div>
-                <p class="text-[11px] text-gray-400 mt-2">Pilih boundary, klik '+ Titik Manual', lalu klik di dalam area peta.</p>
+                <p class="text-[11px] text-gray-400 mt-2">Pilih boundary, klik tombol '+ Titik Manual' (kursor berubah jadi bidikan), lalu klik di dalam peta.</p>
             </div>
 
             <!-- Object List -->
@@ -109,15 +112,15 @@
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- Inisialisasi Peta & Basemaps (Mengatasi Error Zoom & Tile Not Available) ---
+        // --- Inisialisasi Peta & Basemaps (Mengatasi Error "Map data not yet available") ---
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
+            maxZoom: 21,
             maxNativeZoom: 19,
             attribution: '&copy; OpenStreetMap contributors'
         });
 
         const earthLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19,
+            maxZoom: 21,
             maxNativeZoom: 19,
             attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
         });
@@ -279,7 +282,6 @@
                         }
                     },
                     pointToLayer: function(feature, latlng) {
-                        // Menggunakan titik marker standar Leaflet untuk Point KMZ
                         const props = feature.properties || {};
                         const title = props.name || props.title || 'Titik KMZ';
                         const desc = props.description || '';
@@ -403,8 +405,15 @@
             }
 
             isAddingMarker = !isAddingMarker;
-            btnAddMarker.classList.toggle('bg-emerald-800', isAddingMarker);
-            btnAddMarker.innerText = isAddingMarker ? 'Klik di Peta...' : '+ Titik Manual';
+            if (isAddingMarker) {
+                btnAddMarker.classList.add('bg-emerald-800');
+                btnAddMarker.innerText = 'Batalkan';
+                map.getContainer().classList.add('crosshair-cursor-enabled');
+            } else {
+                btnAddMarker.classList.remove('bg-emerald-800');
+                btnAddMarker.innerText = '+ Titik Manual';
+                map.getContainer().classList.remove('crosshair-cursor-enabled');
+            }
         });
 
         map.on('click', async (e) => {
@@ -416,6 +425,7 @@
                 isAddingMarker = false;
                 btnAddMarker.classList.remove('bg-emerald-800');
                 btnAddMarker.innerText = '+ Titik Manual';
+                map.getContainer().classList.remove('crosshair-cursor-enabled');
                 return;
             }
 
@@ -424,6 +434,7 @@
                 isAddingMarker = false;
                 btnAddMarker.classList.remove('bg-emerald-800');
                 btnAddMarker.innerText = '+ Titik Manual';
+                map.getContainer().classList.remove('crosshair-cursor-enabled');
                 return;
             }
 
@@ -445,6 +456,7 @@
             isAddingMarker = false;
             btnAddMarker.classList.remove('bg-emerald-800');
             btnAddMarker.innerText = '+ Titik Manual';
+            map.getContainer().classList.remove('crosshair-cursor-enabled');
             renderObjects();
         });
 
