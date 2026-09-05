@@ -55,10 +55,10 @@
 
             <!-- Admin Section: Upload KMZ -->
             <div id="admin-section" class="p-4 border-b bg-gray-50">
-                <h3 class="font-semibold text-sm text-blue-600 mb-2">📤 Upload KMZ (Admin Only)[cite: 1]</h3>
+                <h3 class="font-semibold text-sm text-blue-600 mb-2">📤 Upload KMZ (Admin Only)</h3>
                 <input type="file" id="kmz-file-input" accept=".kmz, .kml" class="block w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mb-2">
                 <button id="upload-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded transition">
-                    Proses & Simpan ke Supabase[cite: 1]
+                    Proses & Simpan ke Supabase
                 </button>
             </div>
 
@@ -66,7 +66,7 @@
             <div class="p-4 border-b">
                 <h3 class="font-semibold text-sm text-gray-700 mb-2">📂 Pilih Area / Boundary</h3>
                 <select id="boundary-select" class="w-full text-sm border rounded p-2 focus:ring focus:ring-blue-300">
-                    <option value="">-- Memuat Area dari Supabase --[cite: 1]</option>
+                    <option value="">-- Memuat Area dari Supabase --</option>
                 </select>
             </div>
 
@@ -75,7 +75,7 @@
                 <h3 class="font-semibold text-sm text-gray-700 mb-2">📍 Tambah Objek Survey</h3>
                 <div class="grid grid-cols-2 gap-2">
                     <button id="btn-add-marker" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-2 rounded font-medium">+ Titik Manual</button>
-                    <button id="btn-export-kmz" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 px-2 rounded font-medium">📥 Export KMZ[cite: 1]</button>
+                    <button id="btn-export-kmz" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 px-2 rounded font-medium">📥 Export KMZ</button>
                 </div>
                 <div id="mode-status" class="mt-2 text-[11px] font-semibold text-emerald-600 hidden">⚡ Mode Tambah Titik Aktif: Klik di peta untuk menyimpan titik.</div>
                 <p class="text-[11px] text-gray-400 mt-1">Pilih boundary, klik '+ Titik Manual', lalu klik di dalam area peta.</p>
@@ -107,30 +107,30 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // --- KONFIGURASI SUPABASE ---[cite: 1]
-        const SUPABASE_URL = 'https://dqlbumvnklzvzekxcawc.supabase.co';[cite: 1]
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxbGJ1bXZua2x6dnpla3hjYXdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjA4NjMsImV4cCI6MjEwNDE5Njg2M30.LdtDCrgVEYNm7PQ5L57-OuWB38Ada8o2q-TZsNfQRgo';[cite: 1]
+        // --- KONFIGURASI SUPABASE ---
+        const SUPABASE_URL = 'https://dqlbumvnklzvzekxcawc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxbGJ1bXZua2x6dnpla3hjYXdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjA4NjMsImV4cCI6MjEwNDE5Njg2M30.LdtDCrgVEYNm7PQ5L57-OuWB38Ada8o2q-TZsNfQRgo';
 
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);[cite: 1]
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- Inisialisasi Peta & Basemaps (Perbaikan Domain Google Satellite) ---[cite: 1]
+        // --- Inisialisasi Peta & Basemaps ---
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 21,
             maxNativeZoom: 19,
-            attribution: '&copy; OpenStreetMap contributors'[cite: 1]
+            attribution: '&copy; OpenStreetMap contributors'
         });
 
         const earthLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
             maxZoom: 21,
             maxNativeZoom: 20,
             subdomains: ['0', '1', '2', '3'],
-            attribution: '&copy; Google Satellite'[cite: 1]
+            attribution: '&copy; Google Satellite'
         });
 
         const map = L.map('map', {
             center: [-2.548926, 118.014863],
             zoom: 5,
-            layers: [earthLayer], // Default mode earth satelit HD[cite: 1]
+            layers: [earthLayer],
             zoomControl: false,
             maxZoom: 21
         });
@@ -138,8 +138,8 @@
         L.control.zoom({ position: 'topleft' }).addTo(map);
 
         const baseMaps = {
-            "🌍 Tampilan Earth (Satelit HD)": earthLayer,[cite: 1]
-            "🗺️ Peta Jalan (Standard)": osmLayer[cite: 1]
+            "🌍 Tampilan Earth (Satelit HD)": earthLayer,
+            "🗺️ Peta Jalan (Standard)": osmLayer
         };
         L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 
@@ -151,18 +151,18 @@
         const syncStatusEl = document.getElementById('sync-status');
         async function checkSupabaseConnection() {
             try {
-                const { error } = await supabaseClient.from('boundaries').select('id').limit(1);[cite: 1]
+                const { error } = await supabaseClient.from('boundaries').select('id').limit(1);
                 if (error) throw error;
                 syncStatusEl.className = 'text-xs bg-green-500 px-2 py-1 rounded-full text-white';
-                syncStatusEl.innerText = 'Live Sync Active (Supabase)';[cite: 1]
+                syncStatusEl.innerText = 'Live Sync Active (Supabase)';
             } catch (err) {
-                console.error("Gagal terhubung ke Supabase:", err);[cite: 1]
+                console.error("Gagal terhubung ke Supabase:", err);
                 syncStatusEl.className = 'text-xs bg-red-500 px-2 py-1 rounded-full text-white';
-                syncStatusEl.innerText = 'Supabase Connection Error';[cite: 1]
+                syncStatusEl.innerText = 'Supabase Connection Error';
             }
         }
 
-        // --- Role Management ---[cite: 1]
+        // --- Role Management ---
         const roleSelector = document.getElementById('role-selector');
         const adminSection = document.getElementById('admin-section');
         const currentUserLabel = document.getElementById('current-user-label');
@@ -171,28 +171,28 @@
             const role = roleSelector.value;
             if (role === 'admin') {
                 adminSection.style.display = 'block';
-                currentUserLabel.innerText = 'Admin Utama';[cite: 1]
+                currentUserLabel.innerText = 'Admin Utama';
             } else {
                 adminSection.style.display = 'none';
-                currentUserLabel.innerText = 'Surveyor Lapangan';[cite: 1]
+                currentUserLabel.innerText = 'Surveyor Lapangan';
             }
         }
         roleSelector.addEventListener('change', updateRoleUI);
         updateRoleUI();
 
-        // --- Fetch & Populate Boundaries dari Supabase ---[cite: 1]
+        // --- Fetch & Populate Boundaries dari Supabase ---
         async function loadBoundaries() {
             const select = document.getElementById('boundary-select');
-            select.innerHTML = '<option value="">-- Memuat Data --</option>';[cite: 1]
+            select.innerHTML = '<option value="">-- Memuat Data --</option>';
 
-            const { data, error } = await supabaseClient.from('boundaries').select('*');[cite: 1]
+            const { data, error } = await supabaseClient.from('boundaries').select('*');
             if (error) {
-                console.error('Error fetching boundaries:', error);[cite: 1]
-                select.innerHTML = '<option value="">Gagal memuat data</option>';[cite: 1]
+                console.error('Error fetching boundaries:', error);
+                select.innerHTML = '<option value="">Gagal memuat data</option>';
                 return;
             }
 
-            select.innerHTML = '<option value="">-- Pilih Area Survey --</option>';[cite: 1]
+            select.innerHTML = '<option value="">-- Pilih Area Survey --</option>';
             data.forEach(b => {
                 const opt = document.createElement('option');
                 opt.value = b.id;
@@ -201,38 +201,38 @@
             });
         }
 
-        // --- KMZ Upload & Simpan ke Supabase ---[cite: 1]
+        // --- KMZ Upload & Simpan ke Supabase ---
         const uploadBtn = document.getElementById('upload-btn');
         if (uploadBtn) {
             uploadBtn.addEventListener('click', async () => {
                 const fileInput = document.getElementById('kmz-file-input');
                 if (fileInput.files.length === 0) {
-                    alert('Silakan pilih file KMZ atau KML terlebih dahulu!');[cite: 1]
+                    alert('Silakan pilih file KMZ atau KML terlebih dahulu!');
                     return;
                 }
 
                 const file = fileInput.files[0];
                 const fileName = file.name;
-                uploadBtn.innerText = 'Memproses...';[cite: 1]
+                uploadBtn.innerText = 'Memproses...';
 
                 try {
                     let kmlText = '';
                     if (fileName.toLowerCase().endsWith('.kmz')) {
-                        const zip = new JSZip();[cite: 1]
-                        const zipContent = await zip.loadAsync(file);[cite: 1]
-                        let kmlFilename = Object.keys(zipContent.files).find(fn => fn.toLowerCase().endsWith('.kml'));[cite: 1]
+                        const zip = new JSZip();
+                        const zipContent = await zip.loadAsync(file);
+                        let kmlFilename = Object.keys(zipContent.files).find(fn => fn.toLowerCase().endsWith('.kml'));
                         if (!kmlFilename) {
-                            alert('File KML tidak ditemukan di dalam arsip KMZ!');[cite: 1]
-                            uploadBtn.innerText = 'Proses & Simpan ke Supabase';[cite: 1]
+                            alert('File KML tidak ditemukan di dalam arsip KMZ!');
+                            uploadBtn.innerText = 'Proses & Simpan ke Supabase';
                             return;
                         }
-                        kmlText = await zipContent.files[kmlFilename].async('text');[cite: 1]
+                        kmlText = await zipContent.files[kmlFilename].async('text');
                     } else {
-                        kmlText = await file.text();[cite: 1]
+                        kmlText = await file.text();
                     }
 
-                    const dom = new DOMParser().parseFromString(kmlText, 'text/xml');[cite: 1]
-                    const convertedGeoJSON = toGeoJSON.kml(dom);[cite: 1]
+                    const dom = new DOMParser().parseFromString(kmlText, 'text/xml');
+                    const convertedGeoJSON = toGeoJSON.kml(dom);
 
                     const boundaryId = 'b_' + Date.now();
                     const newBoundary = {
@@ -241,10 +241,10 @@
                         geojson: convertedGeoJSON
                     };
 
-                    const { error } = await supabaseClient.from('boundaries').insert([newBoundary]);[cite: 1]
+                    const { error } = await supabaseClient.from('boundaries').insert([newBoundary]);
                     if (error) throw error;
 
-                    alert('File KMZ berhasil diunggah dan disimpan ke Supabase!');[cite: 1]
+                    alert('File KMZ berhasil diunggah dan disimpan ke Supabase!');
                     fileInput.value = '';
                     await loadBoundaries();
                     
@@ -252,19 +252,19 @@
                     loadBoundaryToMap(boundaryId);
 
                 } catch (error) {
-                    console.error(error);[cite: 1]
-                    alert('Gagal memproses file KMZ/KML ke Supabase.');[cite: 1]
+                    console.error(error);
+                    alert('Gagal memproses file KMZ/KML ke Supabase.');
                 } finally {
-                    uploadBtn.innerText = 'Proses & Simpan ke Supabase';[cite: 1]
+                    uploadBtn.innerText = 'Proses & Simpan ke Supabase';
                 }
             });
         }
 
-        // --- Load Boundary & GeoJSON Items ---[cite: 1]
+        // --- Load Boundary & GeoJSON Items ---
         async function loadBoundaryToMap(boundaryId) {
             currentLayerGroup.clearLayers();
             if (!boundaryId) {
-                document.getElementById('object-list').innerHTML = '<span class="text-gray-400 italic">Pilih boundary terlebih dahulu.</span>';[cite: 1]
+                document.getElementById('object-list').innerHTML = '<span class="text-gray-400 italic">Pilih boundary terlebih dahulu.</span>';
                 drawnItems.clearLayers();
                 return;
             }
@@ -273,24 +273,24 @@
                 .from('boundaries')
                 .select('*')
                 .eq('id', boundaryId)
-                .single();[cite: 1]
+                .single();
             
             if (data && data.geojson) {
                 const layer = L.geoJSON(data.geojson, {
                     style: function(feature) {
                         const geomType = feature.geometry ? feature.geometry.type : '';
                         if (geomType.includes('Polygon')) {
-                            return { color: "#3b82f6", weight: 2, fillOpacity: 0.15 };[cite: 1]
+                            return { color: "#3b82f6", weight: 2, fillOpacity: 0.15 };
                         } else if (geomType.includes('LineString')) {
-                            return { color: "#ef4444", weight: 3, opacity: 0.85 };[cite: 1]
+                            return { color: "#ef4444", weight: 3, opacity: 0.85 };
                         }
                     },
                     pointToLayer: function(feature, latlng) {
                         const props = feature.properties || {};
-                        const title = props.name || props.title || 'Titik KMZ';[cite: 1]
+                        const title = props.name || props.title || 'Titik KMZ';
                         const desc = props.description || '';
                         
-                        // Ikon diubah menjadi titik/circleMarker sederhana
+                        // Menggunakan CircleMarker (Titik sederhana) menggantikan marker default
                         const marker = L.circleMarker(latlng, {
                             radius: 6,
                             fillColor: "#3b82f6",
@@ -314,7 +314,7 @@
                 try {
                     const bounds = layer.getBounds();
                     if (bounds.isValid()) {
-                        map.fitBounds(bounds, { padding: [50, 50] });[cite: 1]
+                        map.fitBounds(bounds, { padding: [50, 50] });
                     }
                 } catch(e) {}
             }
@@ -325,31 +325,31 @@
             loadBoundaryToMap(e.target.value);
         });
 
-        // --- Render Objek Survey dari Supabase ---[cite: 1]
+        // --- Render Objek Survey dari Supabase ---
         async function renderObjects() {
             drawnItems.clearLayers();
             const boundaryId = document.getElementById('boundary-select').value;
             const objectListEl = document.getElementById('object-list');
             
             if (!boundaryId) {
-                objectListEl.innerHTML = '<span class="text-gray-400 italic">Pilih boundary terlebih dahulu.</span>';[cite: 1]
+                objectListEl.innerHTML = '<span class="text-gray-400 italic">Pilih boundary terlebih dahulu.</span>';
                 return;
             }
 
             const { data: objects, error } = await supabaseClient
                 .from('survey_objects')
                 .select('*')
-                .eq('boundary_id', boundaryId);[cite: 1]
+                .eq('boundary_id', boundaryId);
 
             if (error) {
-                console.error('Gagal mengambil objek:', error);[cite: 1]
+                console.error('Gagal mengambil objek:', error);
                 return;
             }
 
             objectListEl.innerHTML = '';
 
             if (!objects || objects.length === 0) {
-                objectListEl.innerHTML = '<span class="text-gray-400 italic">Belum ada objek survey manual/GPS di area ini.</span>';[cite: 1]
+                objectListEl.innerHTML = '<span class="text-gray-400 italic">Belum ada objek survey manual/GPS di area ini.</span>';
                 return;
             }
 
@@ -376,32 +376,32 @@
         }
 
         window.focusObject = function(lat, lng) {
-            map.setView([lat, lng], 18);[cite: 1]
+            map.setView([lat, lng], 18);
         };
 
         window.deleteObject = async function(id) {
-            if (confirm('Apakah Anda yakin ingin menghapus objek ini dari Supabase?')) {[cite: 1]
+            if (confirm('Apakah Anda yakin ingin menghapus objek ini dari Supabase?')) {
                 const { error } = await supabaseClient
                     .from('survey_objects')
                     .delete()
-                    .eq('id', id);[cite: 1]
+                    .eq('id', id);
                 
                 if (error) {
-                    alert('Gagal menghapus objek: ' + error.message);[cite: 1]
+                    alert('Gagal menghapus objek: ' + error.message);
                 } else {
                     renderObjects();
                 }
             }
         };
 
-        // --- Tambah Objek via Klik Peta (Terbuka untuk Surveyor & Admin) ---[cite: 1]
+        // --- Tambah Objek via Klik Peta ---
         const btnAddMarker = document.getElementById('btn-add-marker');
         const modeStatus = document.getElementById('mode-status');
 
         btnAddMarker.addEventListener('click', () => {
             const boundaryId = document.getElementById('boundary-select').value;
             if (!boundaryId) {
-                alert('Pilih area boundary terlebih dahulu di panel sebelah kiri!');[cite: 1]
+                alert('Pilih area boundary terlebih dahulu di panel sebelah kiri!');
                 return;
             }
 
@@ -424,7 +424,7 @@
 
             const boundaryId = document.getElementById('boundary-select').value;
             if (!boundaryId) {
-                alert('Pilih area boundary terlebih dahulu!');[cite: 1]
+                alert('Pilih area boundary terlebih dahulu!');
                 isAddingMarker = false;
                 btnAddMarker.classList.remove('bg-emerald-800');
                 btnAddMarker.innerText = '+ Titik Manual';
@@ -433,7 +433,7 @@
                 return;
             }
 
-            const title = prompt('Masukkan nama/keterangan objek survey:', 'Objek Survey Baru');[cite: 1]
+            const title = prompt('Masukkan nama/keterangan objek survey:', 'Objek Survey Baru');
             if (!title) {
                 isAddingMarker = false;
                 btnAddMarker.classList.remove('bg-emerald-800');
@@ -453,11 +453,11 @@
                 timestamp: new Date().toLocaleTimeString()
             };
 
-            const { error } = await supabaseClient.from('survey_objects').insert([newObj]);[cite: 1]
+            const { error } = await supabaseClient.from('survey_objects').insert([newObj]);
             if (error) {
-                alert('Gagal menyimpan objek ke Supabase: ' + error.message);[cite: 1]
+                alert('Gagal menyimpan objek ke Supabase: ' + error.message);
             } else {
-                alert('Titik manual berhasil disimpan!');[cite: 1]
+                alert('Titik manual berhasil disimpan!');
             }
 
             isAddingMarker = false;
@@ -468,11 +468,11 @@
             renderObjects();
         });
 
-        // --- Fitur "Lokasi Saya" & Tambah Titik via GPS ---[cite: 1]
+        // --- Fitur "Lokasi Saya" & Tambah Titik via GPS ---
         const btnMyLocation = document.getElementById('btn-my-location');
         btnMyLocation.addEventListener('click', () => {
             if (!navigator.geolocation) {
-                alert('Browser Anda tidak mendukung Geolocation.');[cite: 1]
+                alert('Browser Anda tidak mendukung Geolocation.');
                 return;
             }
 
@@ -483,7 +483,7 @@
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
 
-                map.setView([lat, lng], 18);[cite: 1]
+                map.setView([lat, lng], 18);
 
                 if (userLocationMarker) {
                     userLocationMarker.setLatLng([lat, lng]);
@@ -495,18 +495,18 @@
                             iconSize: [18, 18],
                             iconAnchor: [9, 9]
                         })
-                    }).addTo(map).bindPopup("<b>📍 Posisi Anda Saat Ini</b>");[cite: 1]
+                    }).addTo(map).bindPopup("<b>📍 Posisi Anda Saat Ini</b>");
                 }
                 userLocationMarker.openPopup();
 
                 const boundaryId = document.getElementById('boundary-select').value;
                 if (!boundaryId) {
-                    alert('Lokasi Anda terdeteksi, namun pilih Area / Boundary terlebih dahulu jika ingin merekam titik survey.');[cite: 1]
+                    alert('Lokasi Anda terdeteksi, namun pilih Area / Boundary terlebih dahulu jika ingin merekam titik survey.');
                     return;
                 }
 
-                if (confirm('Tambahkan objek survey baru di titik koordinat GPS Anda saat ini ke Supabase?')) {[cite: 1]
-                    const title = prompt('Masukkan nama/keterangan objek survey:', 'Objek Survey GPS');[cite: 1]
+                if (confirm('Tambahkan objek survey baru di titik koordinat GPS Anda saat ini ke Supabase?')) {
+                    const title = prompt('Masukkan nama/keterangan objek survey:', 'Objek Survey GPS');
                     if (!title) return;
 
                     const newObj = {
@@ -519,22 +519,22 @@
                         timestamp: new Date().toLocaleTimeString()
                     };
 
-                    const { error } = await supabaseClient.from('survey_objects').insert([newObj]);[cite: 1]
+                    const { error } = await supabaseClient.from('survey_objects').insert([newObj]);
                     if (error) {
-                        alert('Gagal menyimpan data GPS: ' + error.message);[cite: 1]
+                        alert('Gagal menyimpan data GPS: ' + error.message);
                     } else {
                         renderObjects();
-                        alert('Objek survey GPS berhasil dikirim ke Supabase!');[cite: 1]
+                        alert('Objek survey GPS berhasil dikirim ke Supabase!');
                     }
                 }
 
             }, (error) => {
                 btnMyLocation.classList.remove('animate-pulse', 'bg-blue-100');
-                alert('Gagal mendeteksi lokasi GPS: ' + error.message);[cite: 1]
+                alert('Gagal mendeteksi lokasi GPS: ' + error.message);
             }, { enableHighAccuracy: true, timeout: 10000 });
         });
 
-        // --- Supabase Realtime Subscription ---[cite: 1]
+        // --- Supabase Realtime Subscription ---
         supabaseClient
             .channel('public:survey_objects')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'survey_objects' }, payload => {
@@ -542,21 +542,21 @@
             })
             .subscribe();
 
-        // --- Export KMZ ---[cite: 1]
+        // --- Export KMZ ---
         document.getElementById('btn-export-kmz').addEventListener('click', async () => {
             const boundaryId = document.getElementById('boundary-select').value;
             if (!boundaryId) {
-                alert('Pilih area boundary yang ingin di-export!');[cite: 1]
+                alert('Pilih area boundary yang ingin di-export!');
                 return;
             }
 
             const { data: allData, error } = await supabaseClient
                 .from('survey_objects')
                 .select('*')
-                .eq('boundary_id', boundaryId);[cite: 1]
+                .eq('boundary_id', boundaryId);
 
             if (error || !allData) {
-                alert('Gagal memuat data objek untuk di-export.');[cite: 1]
+                alert('Gagal memuat data objek untuk di-export.');
                 return;
             }
             
@@ -580,9 +580,9 @@
   </Document>
 </kml>`;
 
-            const zip = new JSZip();[cite: 1]
+            const zip = new JSZip();
             zip.file("doc.kml", kmlContent);
-            const content = await zip.generateAsync({ type: "blob" });[cite: 1]
+            const content = await zip.generateAsync({ type: "blob" });
 
             const url = URL.createObjectURL(content);
             const a = document.createElement('a');
