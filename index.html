@@ -104,11 +104,11 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // --- KONFIGURASI SUPABASE ---
-        // Ganti dengan URL dan Anon Public Key dari project Supabase Anda
-        const SUPABASE_URL = 'https://dqlbumvnklzvzekxcawc.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxbGJ1bXZua2x6dnpla3hjYXdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjA4NjMsImV4cCI6MjEwNDE5Njg2M30.LdtDCrgVEYNm7PQ5L57-OuWB38Ada8o2q-TZsNfQRgo';
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Menggunakan variabel 'supabaseClient' agar tidak konflik dengan namespace global 'supabase' dari CDN
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // --- Inisialisasi Peta & Basemaps ---
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -145,7 +145,7 @@
         const syncStatusEl = document.getElementById('sync-status');
         async function checkSupabaseConnection() {
             try {
-                const { error } = await supabase.from('boundaries').select('id').limit(1);
+                const { error } = await supabaseClient.from('boundaries').select('id').limit(1);
                 if (error) throw error;
                 syncStatusEl.className = 'text-xs bg-green-500 px-2 py-1 rounded-full text-white';
                 syncStatusEl.innerText = 'Live Sync Active (Supabase)';
@@ -180,7 +180,7 @@
             const select = document.getElementById('boundary-select');
             select.innerHTML = '<option value="">-- Memuat Data --</option>';
 
-            const { data, error } = await supabase.from('boundaries').select('*');
+            const { data, error } = await supabaseClient.from('boundaries').select('*');
             if (error) {
                 console.error('Error fetching boundaries:', error);
                 select.innerHTML = '<option value="">Gagal memuat data</option>';
@@ -234,8 +234,7 @@
                     geojson: convertedGeoJSON
                 };
 
-                // Simpan ke Supabase tabel boundaries
-                const { error } = await supabase.from('boundaries').insert([newBoundary]);
+                const { error } = await supabaseClient.from('boundaries').insert([newBoundary]);
                 if (error) throw error;
 
                 alert('File KMZ berhasil diunggah dan disimpan ke Supabase!');
@@ -262,7 +261,7 @@
                 return;
             }
 
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('boundaries')
                 .select('*')
                 .eq('id', boundaryId)
@@ -295,7 +294,7 @@
                 return;
             }
 
-            const { data: objects, error } = await supabase
+            const { data: objects, error } = await supabaseClient
                 .from('survey_objects')
                 .select('*')
                 .eq('boundary_id', boundaryId);
@@ -340,7 +339,7 @@
 
         window.deleteObject = async function(id) {
             if (confirm('Apakah Anda yakin ingin menghapus objek ini dari Supabase?')) {
-                const { error } = await supabase
+                const { error } = await supabaseClient
                     .from('survey_objects')
                     .delete()
                     .eq('id', id);
@@ -386,7 +385,7 @@
                 timestamp: new Date().toLocaleTimeString()
             };
 
-            const { error } = await supabase.from('survey_objects').insert([newObj]);
+            const { error } = await supabaseClient.from('survey_objects').insert([newObj]);
             if (error) {
                 alert('Gagal menyimpan objek ke Supabase: ' + error.message);
             }
@@ -448,7 +447,7 @@
                         timestamp: new Date().toLocaleTimeString()
                     };
 
-                    const { error } = await supabase.from('survey_objects').insert([newObj]);
+                    const { error } = await supabaseClient.from('survey_objects').insert([newObj]);
                     if (error) {
                         alert('Gagal menyimpan data GPS: ' + error.message);
                     } else {
@@ -463,8 +462,8 @@
             }, { enableHighAccuracy: true, timeout: 10000 });
         });
 
-        // --- Supabase Realtime Subscription (Sinkronisasi Otomatis Antar Perangkat) ---
-        supabase
+        // --- Supabase Realtime Subscription ---
+        supabaseClient
             .channel('public:survey_objects')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'survey_objects' }, payload => {
                 renderObjects();
@@ -479,7 +478,7 @@
                 return;
             }
 
-            const { data: allData, error } = await supabase
+            const { data: allData, error } = await supabaseClient
                 .from('survey_objects')
                 .select('*')
                 .eq('boundary_id', boundaryId);
