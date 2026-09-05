@@ -113,31 +113,31 @@
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- Inisialisasi Peta & Basemaps (Optimasi maxZoom & maxNativeZoom ke 19 untuk hindari tile error) ---
+        // --- Inisialisasi Peta & Basemaps (Mengatasi Error "map data not yet available" di Zoom Tinggi) ---
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
+            maxZoom: 21,
             maxNativeZoom: 19,
             attribution: '&copy; OpenStreetMap contributors'
         });
 
         const earthLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19,
+            maxZoom: 21,
             maxNativeZoom: 19,
-            attribution: 'Tiles &copy; Esri'
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
         });
 
         const map = L.map('map', {
             center: [-2.548926, 118.014863],
             zoom: 5,
-            layers: [osmLayer],
+            layers: [earthLayer], // Default diset ke earthLayer agar langsung terlihat
             zoomControl: false
         });
 
         L.control.zoom({ position: 'topleft' }).addTo(map);
 
         const baseMaps = {
-            "🗺️ Peta Jalan (Standard)": osmLayer,
-            "🌍 Tampilan Earth (Satelit)": earthLayer
+            "🌍 Tampilan Earth (Satelit)": earthLayer,
+            "🗺️ Peta Jalan (Standard)": osmLayer
         };
         L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 
