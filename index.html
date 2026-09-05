@@ -141,6 +141,19 @@
         let isAddingMarker = false;
         let userLocationMarker = null;
 
+        // --- Helper: Sanitasi Teks / XSS Prevention ---
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return String(unsafe)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        const escapeXml = escapeHtml;
+
         // --- Sidebar Mobile Toggle ---
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -190,20 +203,23 @@
             const select = document.getElementById('boundary-select');
             select.innerHTML = '<option value="">-- Memuat Data --</option>';
 
-            const { data, error } = await supabaseClient.from('boundaries').select('*');
-            if (error) {
-                console.error('Error fetching boundaries:', error);
-                select.innerHTML = '<option value="">Gagal memuat data</option>';
-                return;
-            }
+            try {
+                const { data, error } = await supabaseClient.from('boundaries').select('*');
+                if (error) throw error;
 
-            select.innerHTML = '<option value="">-- Pilih Area Survey --</option>';
-            data.forEach(b => {
-                const opt = document.createElement('option');
-                opt.value = b.id;
-                opt.textContent = b.name;
-                select.appendChild(opt);
-            });
+                select.innerHTML = '<option value="">-- Pilih Area Survey --</option>';
+                if (data) {
+                    data.forEach(b => {
+                        const opt = document.createElement('option');
+                        opt.value = b.id;
+                        opt.textContent = b.name;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (err) {
+                console.error('Error fetching boundaries:', err);
+                select.innerHTML = '<option value="">Gagal memuat data</option>';
+            }
         }
 
         // --- KMZ Upload & Simpan ke Supabase ---
@@ -219,6 +235,7 @@
                 const file = fileInput.files[0];
                 const fileName = file.name;
                 uploadBtn.innerText = 'Memproses...';
+                uploadBtn.disabled = true;
 
                 try {
                     let kmlText = '';
@@ -228,7 +245,6 @@
                         let kmlFilename = Object.keys(zipContent.files).find(fn => fn.toLowerCase().endsWith('.kml'));
                         if (!kmlFilename) {
                             alert('File KML tidak ditemukan di dalam arsip KMZ!');
-                            uploadBtn.innerText = 'Proses & Simpan ke Supabase';
                             return;
                         }
                         kmlText = await zipContent.files[kmlFilename].async('text');
@@ -239,7 +255,12 @@
                     const dom = new DOMParser().parseFromString(kmlText, 'text/xml');
                     const convertedGeoJSON = toGeoJSON.kml(dom);
 
-                    const boundaryId = 'b_' + Date.now();
+                    if (!convertedGeoJSON || (convertedGeoJSON.features && convertedGeoJSON.features.length === 0)) {
+                        alert('Format KML/KMZ tidak valid atau kosong.');
+                        return;
+                    }
+
+                    const boundaryId = 'b_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
                     const newBoundary = {
                         id: boundaryId,
                         name: fileName,
@@ -258,9 +279,10 @@
 
                 } catch (error) {
                     console.error(error);
-                    alert('Gagal memproses file KMZ/KML ke Supabase.');
+                    alert('Gagal memproses file KMZ/KML ke Supabase: ' + (error.message || error));
                 } finally {
                     uploadBtn.innerText = 'Proses & Simpan ke Supabase';
+                    uploadBtn.disabled = false;
                 }
             });
         }
@@ -274,55 +296,61 @@
                 return;
             }
 
-            const { data, error } = await supabaseClient
-                .from('boundaries')
-                .select('*')
-                .eq('id', boundaryId)
-                .single();
-            
-            if (data && data.geojson) {
-                const layer = L.geoJSON(data.geojson, {
-                    style: function(feature) {
-                        const geomType = feature.geometry ? feature.geometry.type : '';
-                        if (geomType.includes('Polygon')) {
-                            return { color: "#3b82f6", weight: 2, fillOpacity: 0.15 };
-                        } else if (geomType.includes('LineString')) {
-                            return { color: "#ef4444", weight: 3, opacity: 0.85 };
-                        }
-                    },
-                    pointToLayer: function(feature, latlng) {
-                        const props = feature.properties || {};
-                        const title = props.name || props.title || 'Titik KMZ';
-                        const desc = props.description || '';
-                        
-                        const marker = L.circleMarker(latlng, {
-                            radius: 5,
-                            fillColor: "#3b82f6",
-                            color: "#ffffff",
-                            weight: 2,
-                            opacity: 1,
-                            fillOpacity: 0.9
-                        });
-                        
-                        marker.bindPopup(`
-                            <div class="text-xs">
-                                <b class="text-sm text-blue-600">${title}</b><br>
-                                ${desc ? '<p class="mt-1">' + desc + '</p>' : ''}
-                                <span class="text-gray-400 text-[10px]">Lat: ${latlng.lat.toFixed(6)}, Lng: ${latlng.lng.toFixed(6)}</span>
-                            </div>
-                        `);
-                        return marker;
-                    }
-                }).addTo(currentLayerGroup);
+            try {
+                const { data, error } = await supabaseClient
+                    .from('boundaries')
+                    .select('*')
+                    .eq('id', boundaryId)
+                    .single();
                 
-                try {
-                    const bounds = layer.getBounds();
-                    if (bounds.isValid()) {
-                        map.fitBounds(bounds, { padding: [50, 50] });
-                    }
-                } catch(e) {}
+                if (error) throw error;
+
+                if (data && data.geojson) {
+                    const layer = L.geoJSON(data.geojson, {
+                        style: function(feature) {
+                            const geomType = feature.geometry ? feature.geometry.type : '';
+                            if (geomType.includes('Polygon')) {
+                                return { color: "#3b82f6", weight: 2, fillOpacity: 0.15 };
+                            } else if (geomType.includes('LineString')) {
+                                return { color: "#ef4444", weight: 3, opacity: 0.85 };
+                            }
+                        },
+                        pointToLayer: function(feature, latlng) {
+                            const props = feature.properties || {};
+                            const title = props.name || props.title || 'Titik KMZ';
+                            const desc = props.description || '';
+                            
+                            const marker = L.circleMarker(latlng, {
+                                radius: 5,
+                                fillColor: "#3b82f6",
+                                color: "#ffffff",
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 0.9
+                            });
+                            
+                            marker.bindPopup(`
+                                <div class="text-xs">
+                                    <b class="text-sm text-blue-600">${escapeHtml(title)}</b><br>
+                                    ${desc ? '<p class="mt-1">' + escapeHtml(desc) + '</p>' : ''}
+                                    <span class="text-gray-400 text-[10px]">Lat: ${latlng.lat.toFixed(6)}, Lng: ${latlng.lng.toFixed(6)}</span>
+                                </div>
+                            `);
+                            return marker;
+                        }
+                    }).addTo(currentLayerGroup);
+                    
+                    try {
+                        const bounds = layer.getBounds();
+                        if (bounds.isValid()) {
+                            map.fitBounds(bounds, { padding: [50, 50] });
+                        }
+                    } catch(e) {}
+                }
+                renderObjects();
+            } catch (err) {
+                console.error("Gagal memuat boundary ke peta:", err);
             }
-            renderObjects();
         }
 
         document.getElementById('boundary-select').addEventListener('change', (e) => {
@@ -332,7 +360,7 @@
             }
         });
 
-        // --- Render Objek Survey dari Supabase (Aman dari XSS / Quote Breakage) ---
+        // --- Render Objek Survey dari Supabase ---
         async function renderObjects() {
             drawnItems.clearLayers();
             const boundaryId = document.getElementById('boundary-select').value;
@@ -343,90 +371,90 @@
                 return;
             }
 
-            const { data: objects, error } = await supabaseClient
-                .from('survey_objects')
-                .select('*')
-                .eq('boundary_id', boundaryId);
+            try {
+                const { data: objects, error } = await supabaseClient
+                    .from('survey_objects')
+                    .select('*')
+                    .eq('boundary_id', boundaryId);
 
-            if (error) {
-                console.error('Gagal mengambil objek:', error);
-                return;
-            }
+                if (error) throw error;
 
-            objectListEl.innerHTML = '';
+                objectListEl.innerHTML = '';
 
-            if (!objects || objects.length === 0) {
-                objectListEl.innerHTML = '<span class="text-gray-400 italic">Belum ada objek survey manual/GPS di area ini.</span>';
-                return;
-            }
+                if (!objects || objects.length === 0) {
+                    objectListEl.innerHTML = '<span class="text-gray-400 italic">Belum ada objek survey manual/GPS di area ini.</span>';
+                    return;
+                }
 
-            objects.forEach(item => {
-                const marker = L.circleMarker([item.lat, item.lng], {
-                    radius: 5,
-                    fillColor: "#10b981",
-                    color: "#ffffff",
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.9
+                objects.forEach(item => {
+                    const marker = L.circleMarker([item.lat, item.lng], {
+                        radius: 5,
+                        fillColor: "#10b981",
+                        color: "#ffffff",
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    });
+
+                    const popupContent = document.createElement('div');
+                    popupContent.className = 'text-xs';
+                    popupContent.innerHTML = `
+                        <b>${escapeHtml(item.title)}</b><br>
+                        Surveyor: ${escapeHtml(item.surveyor)}<br>
+                        Waktu: ${escapeHtml(item.timestamp)}<br>
+                    `;
+                    const btnContainer = document.createElement('div');
+                    btnContainer.className = 'mt-2 flex space-x-1';
+
+                    const editBtnPopup = document.createElement('button');
+                    editBtnPopup.className = 'bg-amber-500 hover:bg-amber-600 text-white px-2 py-1 rounded text-[11px]';
+                    editBtnPopup.innerText = 'Edit';
+                    editBtnPopup.onclick = () => editObject(item.id, item.title);
+
+                    const deleteBtnPopup = document.createElement('button');
+                    deleteBtnPopup.className = 'bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-[11px]';
+                    deleteBtnPopup.innerText = 'Hapus';
+                    deleteBtnPopup.onclick = () => deleteObject(item.id);
+
+                    btnContainer.appendChild(editBtnPopup);
+                    btnContainer.appendChild(deleteBtnPopup);
+                    popupContent.appendChild(btnContainer);
+                    marker.bindPopup(popupContent);
+                    
+                    drawnItems.addLayer(marker);
+
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'bg-gray-50 border p-2 rounded flex justify-between items-center';
+
+                    const infoDiv = document.createElement('div');
+                    infoDiv.innerHTML = `
+                        <p class="font-bold text-gray-700">${escapeHtml(item.title)}</p>
+                        <p class="text-[10px] text-gray-500">${escapeHtml(item.surveyor)} - ${escapeHtml(item.timestamp)}</p>
+                    `;
+
+                    const actionDiv = document.createElement('div');
+                    actionDiv.className = 'space-x-1 flex items-center';
+
+                    const editLink = document.createElement('button');
+                    editLink.className = 'text-amber-600 hover:underline text-xs font-semibold';
+                    editLink.innerText = 'Edit';
+                    editLink.onclick = () => editObject(item.id, item.title);
+
+                    const viewLink = document.createElement('button');
+                    viewLink.className = 'text-blue-600 hover:underline text-xs font-semibold';
+                    viewLink.innerText = 'Lihat';
+                    viewLink.onclick = () => focusObject(item.lat, item.lng);
+
+                    actionDiv.appendChild(editLink);
+                    actionDiv.appendChild(viewLink);
+
+                    itemDiv.appendChild(infoDiv);
+                    itemDiv.appendChild(actionDiv);
+                    objectListEl.appendChild(itemDiv);
                 });
-
-                const popupContent = document.createElement('div');
-                popupContent.className = 'text-xs';
-                popupContent.innerHTML = `
-                    <b>${escapeHtml(item.title)}</b><br>
-                    Surveyor: ${escapeHtml(item.surveyor)}<br>
-                    Waktu: ${escapeHtml(item.timestamp)}<br>
-                `;
-                const btnContainer = document.createElement('div');
-                btnContainer.className = 'mt-2 flex space-x-1';
-
-                const editBtnPopup = document.createElement('button');
-                editBtnPopup.className = 'bg-amber-500 hover:bg-amber-600 text-white px-2 py-1 rounded text-[11px]';
-                editBtnPopup.innerText = 'Edit';
-                editBtnPopup.onclick = () => editObject(item.id, item.title);
-
-                const deleteBtnPopup = document.createElement('button');
-                deleteBtnPopup.className = 'bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-[11px]';
-                deleteBtnPopup.innerText = 'Hapus';
-                deleteBtnPopup.onclick = () => deleteObject(item.id);
-
-                btnContainer.appendChild(editBtnPopup);
-                btnContainer.appendChild(deleteBtnPopup);
-                popupContent.appendChild(btnContainer);
-                marker.bindPopup(popupContent);
-                
-                drawnItems.addLayer(marker);
-
-                // Sidebar item list entry using DOM API to prevent injection bugs
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'bg-gray-50 border p-2 rounded flex justify-between items-center';
-
-                const infoDiv = document.createElement('div');
-                infoDiv.innerHTML = `
-                    <p class="font-bold text-gray-700">${escapeHtml(item.title)}</p>
-                    <p class="text-[10px] text-gray-500">${escapeHtml(item.surveyor)} - ${escapeHtml(item.timestamp)}</p>
-                `;
-
-                const actionDiv = document.createElement('div');
-                actionDiv.className = 'space-x-1 flex items-center';
-
-                const editLink = document.createElement('button');
-                editLink.className = 'text-amber-600 hover:underline text-xs font-semibold';
-                editLink.innerText = 'Edit';
-                editLink.onclick = () => editObject(item.id, item.title);
-
-                const viewLink = document.createElement('button');
-                viewLink.className = 'text-blue-600 hover:underline text-xs font-semibold';
-                viewLink.innerText = 'Lihat';
-                viewLink.onclick = () => focusObject(item.lat, item.lng);
-
-                actionDiv.appendChild(editLink);
-                actionDiv.appendChild(viewLink);
-
-                itemDiv.appendChild(infoDiv);
-                itemDiv.appendChild(actionDiv);
-                objectListEl.appendChild(itemDiv);
-            });
+            } catch (err) {
+                console.error('Gagal mengambil objek survey:', err);
+            }
         }
 
         window.focusObject = function(lat, lng) {
@@ -446,7 +474,7 @@
 
             const { error } = await supabaseClient
                 .from('survey_objects')
-                .update({ title: newTitle })
+                .update({ title: newTitle.trim() })
                 .eq('id', id);
 
             if (error) {
@@ -526,7 +554,7 @@
             }
 
             const newObj = {
-                id: 'obj_' + Date.now(),
+                id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
                 boundary_id: boundaryId,
                 lat: e.latlng.lat,
                 lng: e.latlng.lng,
@@ -586,7 +614,7 @@
                     if (!title || !title.trim()) return;
 
                     const newObj = {
-                        id: 'obj_' + Date.now(),
+                        id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
                         boundary_id: boundaryId,
                         lat: lat,
                         lng: lng,
@@ -617,20 +645,7 @@
             })
             .subscribe();
 
-        // --- Helper: XML Escape & GeoJSON to KML Converter (Robust & Fixed) ---
-        function escapeXml(unsafe) {
-            if (!unsafe) return '';
-            return String(unsafe).replace(/[<>&'"]/g, function (c) {
-                switch (c) {
-                    case '<': return '&lt;';
-                    case '>': return '&gt;';
-                    case '&': return '&amp;';
-                    case '\'': return '&apos;';
-                    case '"': return '&quot;';
-                }
-            });
-        }
-
+        // --- Konverter GeoJSON ke KML untuk Export ---
         function geometryToKml(geom) {
             if (!geom) return '';
             if (geom.type === 'Point') {
@@ -677,8 +692,8 @@
 
             return `
     <Placemark>
-      <name>${escapeXml(name)}</name>
-      ${desc ? `<description>${escapeXml(desc)}</description>` : ''}
+      <name>${escapeHtml(name)}</name>
+      ${desc ? `<description>${escapeHtml(desc)}</description>` : ''}
       ${geomXml}
     </Placemark>`;
         }
@@ -691,57 +706,55 @@
                 return;
             }
 
-            const [boundaryRes, objectsRes] = await Promise.all([
-                supabaseClient.from('boundaries').select('*').eq('id', boundaryId).single(),
-                supabaseClient.from('survey_objects').select('*').eq('boundary_id', boundaryId)
-            ]);
+            try {
+                const [boundaryRes, objectsRes] = await Promise.all([
+                    supabaseClient.from('boundaries').select('*').eq('id', boundaryId).single(),
+                    supabaseClient.from('survey_objects').select('*').eq('boundary_id', boundaryId)
+                ]);
 
-            const boundaryData = boundaryRes.data;
-            const allData = objectsRes.data;
+                const boundaryData = boundaryRes.data;
+                const allData = objectsRes.data;
 
-            if (boundaryRes.error && !boundaryData) {
-                alert('Gagal memuat data boundary untuk di-export.');
-                return;
-            }
-            
-            let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+                if (boundaryRes.error && !boundaryData) {
+                    alert('Gagal memuat data boundary untuk di-export.');
+                    return;
+                }
+                
+                let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>Hasil Survey GIS - ${boundaryData ? escapeXml(boundaryData.name) : 'Export'}</name>`;
+    <name>Hasil Survey GIS - ${boundaryData ? escapeHtml(boundaryData.name) : 'Export'}</name>`;
 
-            // 1. Export Boundary Features
-            if (boundaryData && boundaryData.geojson) {
-                const geojson = boundaryData.geojson;
-                if (geojson.type === 'FeatureCollection' && geojson.features) {
-                    geojson.features.forEach(f => {
-                        kmlContent += geoJsonFeatureToKml(f);
-                    });
-                } else if (geojson.type === 'Feature') {
-                    kmlContent += geoJsonFeatureToKml(geojson);
-                } else if (geojson.type && geojson.coordinates) {
-                    kmlContent += geoJsonFeatureToKml({ geometry: geojson, properties: { name: boundaryData.name } });
+                if (boundaryData && boundaryData.geojson) {
+                    const geojson = boundaryData.geojson;
+                    if (geojson.type === 'FeatureCollection' && geojson.features) {
+                        geojson.features.forEach(f => {
+                            kmlContent += geoJsonFeatureToKml(f);
+                        });
+                    } else if (geojson.type === 'Feature') {
+                        kmlContent += geoJsonFeatureToKml(geojson);
+                    } else if (geojson.type && geojson.coordinates) {
+                        kmlContent += geoJsonFeatureToKml({ geometry: geojson, properties: { name: boundaryData.name } });
+                    }
                 }
-            }
 
-            // 2. Export Survey Objects / Titik Manual / GPS
-            if (allData && allData.length > 0) {
-                allData.forEach(item => {
-                    kmlContent += `
+                if (allData && allData.length > 0) {
+                    allData.forEach(item => {
+                        kmlContent += `
     <Placemark>
-      <name>${escapeXml(item.title)}</name>
-      <description>Surveyor: ${escapeXml(item.surveyor)}, Waktu: ${escapeXml(item.timestamp)}</description>
+      <name>${escapeHtml(item.title)}</name>
+      <description>Surveyor: ${escapeHtml(item.surveyor)}, Waktu: ${escapeHtml(item.timestamp)}</description>
       <Point>
         <coordinates>${item.lng},${item.lat},0</coordinates>
       </Point>
     </Placemark>`;
-                });
-            }
+                    });
+                }
 
-            kmlContent += `
+                kmlContent += `
   </Document>
 </kml>`;
 
-            try {
                 const zip = new JSZip();
                 zip.file("doc.kml", kmlContent);
                 const content = await zip.generateAsync({ type: "blob" });
