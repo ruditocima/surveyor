@@ -107,7 +107,6 @@
         const SUPABASE_URL = 'https://dqlbumvnklzvzekxcawc.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxbGJ1bXZua2x6dnpla3hjYXdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjA4NjMsImV4cCI6MjEwNDE5Njg2M30.LdtDCrgVEYNm7PQ5L57-OuWB38Ada8o2q-TZsNfQRgo';
 
-        // Menggunakan variabel 'supabaseClient' agar tidak konflik dengan namespace global 'supabase' dari CDN
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // --- Inisialisasi Peta & Basemaps ---
@@ -235,36 +234,8 @@
                     geojson: convertedGeoJSON
                 };
 
-                // Simpan Boundary utama ke Supabase
                 const { error } = await supabaseClient.from('boundaries').insert([newBoundary]);
                 if (error) throw error;
-
-                // Ekstrak semua item Point di dalam file KMZ untuk dimasukkan ke tabel survey_objects (sidebar)
-                const surveyObjectsToInsert = [];
-                if (convertedGeoJSON && convertedGeoJSON.features) {
-                    convertedGeoJSON.features.forEach((feat, index) => {
-                        if (feat.geometry && feat.geometry.type === 'Point') {
-                            const coords = feat.geometry.coordinates; // [lng, lat]
-                            const title = (feat.properties && (feat.properties.name || feat.properties.title)) 
-                                ? (feat.properties.name || feat.properties.title) 
-                                : `Titik KMZ ${index + 1}`;
-                            
-                            surveyObjectsToInsert.push({
-                                id: 'obj_' + Date.now() + '_' + index,
-                                boundary_id: boundaryId,
-                                lat: coords[1],
-                                lng: coords[0],
-                                title: title,
-                                surveyor: currentUserLabel.innerText,
-                                timestamp: new Date().toLocaleTimeString()
-                            });
-                        }
-                    });
-                }
-
-                if (surveyObjectsToInsert.length > 0) {
-                    await supabaseClient.from('survey_objects').insert(surveyObjectsToInsert);
-                }
 
                 alert('File KMZ berhasil diunggah dan disimpan ke Supabase!');
                 fileInput.value = '';
@@ -297,7 +268,7 @@
                 .single();
             
             if (data && data.geojson) {
-                // Render SEMUA item geojson (Polygon, LineString, Point) langsung ke peta
+                // Merender SELURUH fitur GeoJSON (Polygon, LineString, Point) dari file KMZ secara otomatis
                 const layer = L.geoJSON(data.geojson, {
                     style: function(feature) {
                         if (feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')) {
@@ -319,7 +290,7 @@
                     onEachFeature: function(feature, layer) {
                         if (feature.properties && (feature.properties.name || feature.properties.title)) {
                             const title = feature.properties.name || feature.properties.title;
-                            if (feature.geometry.type !== 'Point') {
+                            if (feature.geometry && feature.geometry.type !== 'Point') {
                                 layer.bindPopup(`<b>${title}</b>`);
                             }
                         }
