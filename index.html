@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Survey GIS Ringan</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- JSZip for KMZ extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- toGeoJSON for KML conversion -->
+    <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
+    <style>
+        #map { height: calc(100vh - 4rem); }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col h-screen overflow-hidden">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-blue-600 text-white shadow-md h-16 flex items-center justify-between px-4 z-20">
+        <div class="flex items-center space-x-3">
+            <span class="text-xl font-bold">🗺️ GIS Survey App</span>
+            <span id="sync-status" class="text-xs bg-green-500 px-2 py-1 rounded-full text-white">Live Sync Active</span>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium">Role:</label>
+                <select id="role-selector" class="text-black text-sm rounded px-2 py-1 font-semibold focus:outline-none">
+                    <option value="admin">Admin</option>
+                    <option value="surveyor">Surveyor</option>
+                </select>
+            </div>
+            <div class="text-sm bg-blue-700 px-3 py-1 rounded">
+                User: <span id="current-user-label" class="font-bold">Admin Utama</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="flex flex-1 relative">
+        
+        <!-- Sidebar Panel -->
+        <aside class="w-80 bg-white shadow-lg flex flex-col z-10 overflow-y-auto">
+            <div class="p-4 border-b">
+                <h2 class="font-bold text-gray-700 text-lg">Panel Kontrol</h2>
+                <p class="text-xs text-gray-500">Kelola boundary & objek survey</p>
+            </div>
+
+            <!-- Admin Section: Upload KMZ -->
+            <div id="admin-section" class="p-4 border-b bg-gray-50">
+                <h3 class="font-semibold text-sm text-blue-600 mb-2">📤 Upload KMZ (Admin Only)</h3>
+                <input type="file" id="kmz-file-input" accept=".kmz, .kml" class="block w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mb-2">
+                <button id="upload-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded transition">
+                    Proses & Simpan ke Sistem
+                </button>
+            </div>
+
+            <!-- Boundary & Layer Selection -->
+            <div class="p-4 border-b">
+                <h3 class="font-semibold text-sm text-gray-700 mb-2">📂 Pilih Area / Boundary</h3>
+                <select id="boundary-select" class="w-full text-sm border rounded p-2 focus:ring focus:ring-blue-300">
+                    <option value="">-- Pilih Area Survey --</option>
+                </select>
+            </div>
+
+            <!-- Object Interaction Tools -->
+            <div class="p-4 border-b">
+                <h3 class="font-semibold text-sm text-gray-700 mb-2">📍 Tambah Objek Survey</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btn-add-marker" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-2 rounded font-medium">+ Titik Manual</button>
+                    <button id="btn-export-kmz" class="bg-amber-600 hover:bg-amber-700 text-white text-xs py-2 px-2 rounded font-medium">📥 Export KMZ</button>
+                </div>
+                <p class="text-[11px] text-gray-400 mt-2">Gunakan tombol '+ Titik Manual' lalu klik peta, atau gunakan ikon <b>Lokasi Saya</b> di pojok kanan bawah peta.</p>
+            </div>
+
+            <!-- Object List -->
+            <div class="p-4 flex-1">
+                <h3 class="font-semibold text-sm text-gray-700 mb-2">📋 Daftar Objek di Peta</h3>
+                <div id="object-list" class="space-y-2 text-xs max-h-48 overflow-y-auto">
+                    <span class="text-gray-400 italic">Belum ada data objek.</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Map Container -->
+        <main class="flex-1 relative">
+            <div id="map" class="w-full h-full"></div>
+
+            <!-- Floating Action Button: Lokasi Saya (Sudut Kanan Bawah) -->
+            <button id="btn-my-location" class="absolute bottom-6 right-6 bg-white hover:bg-gray-100 text-blue-600 font-bold p-3 rounded-full shadow-2xl z-[400] flex items-center justify-center border border-gray-300 transition transform hover:scale-105" title="Lokasi Saya & Tambah Titik GPS">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </button>
+        </main>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // --- Inisialisasi Peta & Basemaps (Termasuk Tampilan Earth/Satelit) ---
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        });
+
+        const earthLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
+
+        const map = L.map('map', {
+            center: [-2.548926, 118.014863],
+            zoom: 5,
+            layers: [osmLayer], // Default awal peta jalan
+            zoomControl: false // Dipindah posisinya agar rapi jika diperlukan, atau biarkan default
+        });
+
+        // Tambah kontrol zoom di kiri atas
+        L.control.zoom({ position: 'topleft' }).addTo(map);
+
+        // Layer Switcher (Peta Jalan / Tampilan Earth Satelit)
+        const baseMaps = {
+            "🗺️ Peta Jalan (Standard)": osmLayer,
+            "🌍 Tampilan Earth (Satelit)": earthLayer
+        };
+        L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
+
+        let drawnItems = L.layerGroup().addTo(map);
+        let isAddingMarker = false;
+        let userLocationMarker = null;
+
+        // --- Mock Supabase (localStorage & Broadcast Sync) ---
+        const STORAGE_KEY_DATA = 'gis_survey_data_v1';
+        const STORAGE_KEY_BOUNDARIES = 'gis_survey_boundaries_v1';
+
+        function getStoredData() {
+            const data = localStorage.getItem(STORAGE_KEY_DATA);
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveStoredData(data) {
+            localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(data));
+            window.dispatchEvent(new Event('storage'));
+        }
+
+        function getStoredBoundaries() {
+            const data = localStorage.getItem(STORAGE_KEY_BOUNDARIES);
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveStoredBoundaries(data) {
+            localStorage.setItem(STORAGE_KEY_BOUNDARIES, JSON.stringify(data));
+        }
+
+        // --- Role Management ---
+        const roleSelector = document.getElementById('role-selector');
+        const adminSection = document.getElementById('admin-section');
+        const currentUserLabel = document.getElementById('current-user-label');
+
+        function updateRoleUI() {
+            const role = roleSelector.value;
+            if (role === 'admin') {
+                adminSection.style.display = 'block';
+                currentUserLabel.innerText = 'Admin Utama';
+            } else {
+                adminSection.style.display = 'none';
+                currentUserLabel.innerText = 'Surveyor Lapangan';
+                isAddingMarker = false;
+            }
+        }
+        roleSelector.addEventListener('change', updateRoleUI);
+        updateRoleUI();
+
+        // --- KMZ / KML Processing ---
+        const uploadBtn = document.getElementById('upload-btn');
+        uploadBtn.addEventListener('click', async () => {
+            const fileInput = document.getElementById('kmz-file-input');
+            if (fileInput.files.length === 0) {
+                alert('Silakan pilih file KMZ atau KML terlebih dahulu!');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const fileName = file.name;
+
+            try {
+                let kmlText = '';
+                if (fileName.endsWith('.kmz')) {
+                    const zip = new JSZip();
+                    const zipContent = await zip.loadAsync(file);
+                    let kmlFilename = Object.keys(zipContent.files).find(fn => fn.endsWith('.kml'));
+                    if (!kmlFilename) {
+                        alert('File KML tidak ditemukan di dalam arsip KMZ!');
+                        return;
+                    }
+                    kmlText = await zipContent.files[kmlFilename].async('text');
+                } else {
+                    kmlText = await file.text();
+                }
+
+                const dom = new DOMParser().parseFromString(kmlText, 'text/xml');
+                const convertedGeoJSON = toGeoJSON.kml(dom);
+
+                let boundaries = getStoredBoundaries();
+                const newBoundary = {
+                    id: 'b_' + Date.now(),
+                    name: fileName,
+                    geojson: convertedGeoJSON
+                };
+                boundaries.push(newBoundary);
+                saveStoredBoundaries(boundaries);
+
+                populateBoundaryDropdown();
+                alert('File KMZ berhasil diunggah dan dimuat ke sistem!');
+                fileInput.value = '';
+                
+                document.getElementById('boundary-select').value = newBoundary.id;
+                loadBoundaryToMap(newBoundary.id);
+
+            } catch (error) {
+                console.error(error);
+                alert('Gagal memproses file KMZ/KML.');
+            }
+        });
+
+        function populateBoundaryDropdown() {
+            const select = document.getElementById('boundary-select');
+            const boundaries = getStoredBoundaries();
+            select.innerHTML = '<option value="">-- Pilih Area Survey --</option>';
+            boundaries.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.id;
+                opt.textContent = b.name;
+                select.appendChild(opt);
+            });
+        }
+
+        let currentLayerGroup = L.layerGroup().addTo(map);
+
+        function loadBoundaryToMap(boundaryId) {
+            currentLayerGroup.clearLayers();
+            const boundaries = getStoredBoundaries();
+            const boundary = boundaries.find(b => b.id === boundaryId);
+            
+            if (boundary) {
+                const layer = L.geoJSON(boundary.geojson, {
+                    style: { color: "#3b82f6", weight: 2, fillOpacity: 0.1 }
+                }).addTo(currentLayerGroup);
+                
+                try {
+                    map.fitBounds(layer.getBounds());
+                } catch(e) {}
+            }
+            renderObjects();
+        }
+
+        document.getElementById('boundary-select').addEventListener('change', (e) => {
+            loadBoundaryToMap(e.target.value);
+        });
+
+        // --- Fitur "Lokasi Saya" & Tambah Titik via GPS ---
+        const btnMyLocation = document.getElementById('btn-my-location');
+        btnMyLocation.addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                alert('Browser Anda tidak mendukung Geolocation.');
+                return;
+            }
+
+            btnMyLocation.classList.add('animate-pulse', 'bg-blue-100');
+
+            navigator.geolocation.getCurrentPosition((position) => {
+                btnMyLocation.classList.remove('animate-pulse', 'bg-blue-100');
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+
+                // Pusatkan peta ke lokasi user
+                map.setView([lat, lng], 18);
+
+                // Buat/Perbarui Marker Posisi Pengguna di Peta
+                if (userLocationMarker) {
+                    userLocationMarker.setLatLng([lat, lng]);
+                } else {
+                    userLocationMarker = L.marker([lat, lng], {
+                        icon: L.divIcon({
+                            className: 'custom-user-location',
+                            html: '<div style="background-color: #3b82f6; width: 18px; height: 18px; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 12px rgba(0,0,0,0.6);"></div>',
+                            iconSize: [18, 18],
+                            iconAnchor: [9, 9]
+                        })
+                    }).addTo(map).bindPopup("<b>📍 Posisi Anda Saat Ini</b>");
+                }
+                userLocationMarker.openPopup();
+
+                // Konfirmasi apakah ingin langsung menambah titik survey di lokasi ini
+                const boundaryId = document.getElementById('boundary-select').value;
+                if (!boundaryId) {
+                    alert('Lokasi Anda terdeteksi, namun pilih Area / Boundary terlebih dahulu di panel kiri jika ingin langsung merekam titik survey.');
+                    return;
+                }
+
+                if (confirm('Tambahkan objek survey baru di titik koordinat GPS Anda saat ini?')) {
+                    const title = prompt('Masukkan nama/keterangan objek survey:', 'Objek Survey GPS');
+                    if (!title) return;
+
+                    const newObj = {
+                        id: 'obj_' + Date.now(),
+                        boundaryId: boundaryId,
+                        lat: lat,
+                        lng: lng,
+                        title: title,
+                        surveyor: currentUserLabel.innerText,
+                        timestamp: new Date().toLocaleTimeString()
+                    };
+
+                    let allData = getStoredData();
+                    allData.push(newObj);
+                    saveStoredData(allData);
+                    renderObjects();
+                    alert('Objek survey berhasil ditambahkan dari lokasi GPS Anda!');
+                }
+
+            }, (error) => {
+                btnMyLocation.classList.remove('animate-pulse', 'bg-blue-100');
+                alert('Gagal mendeteksi lokasi GPS: ' + error.message);
+            }, { enableHighAccuracy: true, timeout: 10000 });
+        });
+
+        // --- Survey Objects Management (Manual Click) ---
+        const btnAddMarker = document.getElementById('btn-add-marker');
+        btnAddMarker.addEventListener('click', () => {
+            isAddingMarker = !isAddingMarker;
+            btnAddMarker.classList.toggle('bg-emerald-800', isAddingMarker);
+            btnAddMarker.innerText = isAddingMarker ? 'Klik di Peta...' : '+ Titik Manual';
+        });
+
+        map.on('click', (e) => {
+            if (!isAddingMarker) return;
+
+            const boundaryId = document.getElementById('boundary-select').value;
+            if (!boundaryId) {
+                alert('Pilih area boundary terlebih dahulu!');
+                isAddingMarker = false;
+                btnAddMarker.classList.remove('bg-emerald-800');
+                btnAddMarker.innerText = '+ Titik Manual';
+                return;
+            }
+
+            const title = prompt('Masukkan nama/keterangan objek survey:', 'Objek Survey Baru');
+            if (!title) return;
+
+            const newObj = {
+                id: 'obj_' + Date.now(),
+                boundaryId: boundaryId,
+                lat: e.latlng.lat,
+                lng: e.latlng.lng,
+                title: title,
+                surveyor: currentUserLabel.innerText,
+                timestamp: new Date().toLocaleTimeString()
+            };
+
+            let allData = getStoredData();
+            allData.push(newObj);
+            saveStoredData(allData);
+
+            isAddingMarker = false;
+            btnAddMarker.classList.remove('bg-emerald-800');
+            btnAddMarker.innerText = '+ Titik Manual';
+
+            renderObjects();
+        });
+
+        function renderObjects() {
+            drawnItems.clearLayers();
+            const boundaryId = document.getElementById('boundary-select').value;
+            const allData = getStoredData();
+            const filteredData = allData.filter(item => item.boundaryId === boundaryId);
+
+            const objectListEl = document.getElementById('object-list');
+            objectListEl.innerHTML = '';
+
+            if (filteredData.length === 0) {
+                objectListEl.innerHTML = '<span class="text-gray-400 italic">Belum ada objek survey di area ini.</span>';
+                return;
+            }
+
+            filteredData.forEach(item => {
+                const marker = L.marker([item.lat, item.lng]).bindPopup(`
+                    <b>${item.title}</b><br>
+                    Surveyor: ${item.surveyor}<br>
+                    Waktu: ${item.timestamp}<br>
+                    <button onclick="deleteObject('${item.id}')" class="mt-2 bg-red-500 text-white px-2 py-1 rounded text-xs">Hapus</button>
+                `);
+                drawnItems.addLayer(marker);
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'bg-gray-50 border p-2 rounded flex justify-between items-center';
+                itemDiv.innerHTML = `
+                    <div>
+                        <p class="font-bold text-gray-700">${item.title}</p>
+                        <p class="text-[10px] text-gray-500">${item.surveyor} - ${item.timestamp}</p>
+                    </div>
+                    <button onclick="focusObject(${item.lat}, ${item.lng})" class="text-blue-600 hover:underline text-xs">Lihat</button>
+                `;
+                objectListEl.appendChild(itemDiv);
+            });
+        }
+
+        window.focusObject = function(lat, lng) {
+            map.setView([lat, lng], 18);
+        };
+
+        window.deleteObject = function(id) {
+            if (confirm('Apakah Anda yakin ingin menghapus objek ini?')) {
+                let allData = getStoredData();
+                allData = allData.filter(item => item.id !== id);
+                saveStoredData(allData);
+                renderObjects();
+            }
+        };
+
+        window.addEventListener('storage', () => {
+            renderObjects();
+        });
+
+        // --- Export KMZ ---
+        document.getElementById('btn-export-kmz').addEventListener('click', async () => {
+            const boundaryId = document.getElementById('boundary-select').value;
+            if (!boundaryId) {
+                alert('Pilih area boundary yang ingin di-export!');
+                return;
+            }
+
+            const allData = getStoredData().filter(item => item.boundaryId === boundaryId);
+            
+            let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Hasil Survey GIS</name>`;
+
+            allData.forEach(item => {
+                kmlContent += `
+    <Placemark>
+      <name>${item.title}</name>
+      <description>Surveyor: ${item.surveyor}, Waktu: ${item.timestamp}</description>
+      <Point>
+        <coordinates>${item.lng},${item.lat},0</coordinates>
+      </Point>
+    </Placemark>`;
+            });
+
+            kmlContent += `
+  </Document>
+</kml>`;
+
+            const zip = new JSZip();
+            zip.file("doc.kml", kmlContent);
+            const content = await zip.generateAsync({ type: "blob" });
+
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "hasil_survey.kmz";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+
+        populateBoundaryDropdown();
+    </script>
+</body>
+</html>
