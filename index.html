@@ -290,9 +290,9 @@
                         const title = props.name || props.title || 'Titik KMZ';
                         const desc = props.description || '';
                         
-                        // Menggunakan CircleMarker (Titik sederhana) menggantikan marker default
+                        // Titik kecil (circleMarker) untuk KMZ
                         const marker = L.circleMarker(latlng, {
-                            radius: 6,
+                            radius: 5,
                             fillColor: "#3b82f6",
                             color: "#ffffff",
                             weight: 2,
@@ -325,7 +325,7 @@
             loadBoundaryToMap(e.target.value);
         });
 
-        // --- Render Objek Survey dari Supabase ---
+        // --- Render Objek Survey dari Supabase (Titik Manual / GPS Diperkecil menjadi CircleMarker) ---
         async function renderObjects() {
             drawnItems.clearLayers();
             const boundaryId = document.getElementById('boundary-select').value;
@@ -354,12 +354,21 @@
             }
 
             objects.forEach(item => {
-                const marker = L.marker([item.lat, item.lng]).bindPopup(`
+                // Mengubah titik manual/GPS menjadi circleMarker kecil berwarna hijau terang (emerald)
+                const marker = L.circleMarker([item.lat, item.lng], {
+                    radius: 5,
+                    fillColor: "#10b981", // Warna hijau untuk titik manual/survey
+                    color: "#ffffff",
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.9
+                }).bindPopup(`
                     <b>${item.title}</b><br>
                     Surveyor: ${item.surveyor}<br>
                     Waktu: ${item.timestamp}<br>
                     <button onclick="deleteObject('${item.id}')" class="mt-2 bg-red-500 text-white px-2 py-1 rounded text-xs">Hapus</button>
                 `);
+                
                 drawnItems.addLayer(marker);
 
                 const itemDiv = document.createElement('div');
