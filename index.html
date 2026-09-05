@@ -290,7 +290,6 @@
                         const title = props.name || props.title || 'Titik KMZ';
                         const desc = props.description || '';
                         
-                        // Titik kecil (circleMarker) untuk KMZ
                         const marker = L.circleMarker(latlng, {
                             radius: 5,
                             fillColor: "#3b82f6",
@@ -325,7 +324,7 @@
             loadBoundaryToMap(e.target.value);
         });
 
-        // --- Render Objek Survey dari Supabase (Titik Manual / GPS Diperkecil menjadi CircleMarker) ---
+        // --- Render Objek Survey dari Supabase ---
         async function renderObjects() {
             drawnItems.clearLayers();
             const boundaryId = document.getElementById('boundary-select').value;
@@ -354,10 +353,9 @@
             }
 
             objects.forEach(item => {
-                // Mengubah titik manual/GPS menjadi circleMarker kecil berwarna hijau terang (emerald)
                 const marker = L.circleMarker([item.lat, item.lng], {
                     radius: 5,
-                    fillColor: "#10b981", // Warna hijau untuk titik manual/survey
+                    fillColor: "#10b981",
                     color: "#ffffff",
                     weight: 2,
                     opacity: 1,
@@ -551,7 +549,72 @@
             })
             .subscribe();
 
-        // --- Export KMZ ---
+        // --- Helper: XML Escape & GeoJSON to KML Converter ---
+        function escapeXml(unsafe) {
+            if (!unsafe) return '';
+            return String(unsafe).replace(/[<>&'"]/g, function (c) {
+                switch (c) {
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '&': return '&amp;';
+                    case '\'': return '&apos;';
+                    case '"': return '&quot;';
+                }
+            });
+        }
+
+        function geoJsonFeatureToKml(feature) {
+            if (!feature || !feature.geometry) return '';
+            const geom = feature.geometry;
+            const props = feature.properties || {};
+            const name = props.name || props.title || 'Boundary Feature';
+            const desc = props.description || '';
+
+            let kmlGeom = '';
+
+            if (geom.type === 'Point') {
+                const coords = geom.coordinates;
+                kmlGeom = `<Point><coordinates>${coords.join(',')}</coordinates></Point>`;
+            } else if (geom.type === 'LineString') {
+                const coordStr = geom.coordinates.map(c => c.join(',')).join(' ');
+                kmlGeom = `<LineString><coordinates>${coordStr}</coordinates></LineString>`;
+            } else if (geom.type === 'Polygon') {
+                const rings = geom.coordinates.map(ring => {
+                    const coordStr = ring.map(c => c.join(',')).join(' ');
+                    return `<outerBoundaryIs><LinearRing><coordinates>${coordStr}</coordinates></LinearRing></outerBoundaryIs>`;
+                });
+                kmlGeom = `<Polygon>${rings.join('')}</Polygon>`;
+            } else if (geom.type === 'MultiLineString') {
+                const lineStrings = geom.coordinates.map(line => {
+                    const coordStr = line.map(c => c.join(',')).join(' ');
+                    return `<LineString><coordinates>${coordStr}</coordinates></LineString>`;
+                });
+                kmlGeom = `<MultiGeometry>${lineStrings.join('')}</MultiGeometry>`;
+            } else if (geom.type === 'MultiPolygon') {
+                const polygons = geom.coordinates.map(poly => {
+                    const rings = poly.map(ring => {
+                        const coordStr = ring.map(c => c.join(',')).join(' ');
+                        return `<outerBoundaryIs><LinearRing><coordinates>${coordStr}</coordinates></LinearRing></outerBoundaryIs>`;
+                    });
+                    return `<Polygon>${rings.join('')}</Polygon>`;
+                });
+                kmlGeom = `<MultiGeometry>${polygons.join('')}</MultiGeometry>`;
+            } else if (geom.type === 'GeometryCollection') {
+                const geoms = geom.geometries.map(g => geoJsonFeatureToKml({ geometry: g, properties: {} })).join('');
+                kmlGeom = `<MultiGeometry>${geoms}</MultiGeometry>`;
+            }
+
+            if (!kmlGeom) return '';
+
+            return `
+    <Placemark>
+      <name>${escapeXml(name)}</name>
+      ${desc ? `<description>${escapeXml(desc)}</description>` : ''}
+      ${kmlGeom}
+    </Placemark>`;
+        }
+
+        // --- Export KMZ (Boundary + Survey Objects) ---
         document.getElementById('btn-export-kmz').addEventListener('click', async () => {
             const boundaryId = document.getElementById('boundary-select').value;
             if (!boundaryId) {
@@ -559,31 +622,51 @@
                 return;
             }
 
-            const { data: allData, error } = await supabaseClient
-                .from('survey_objects')
-                .select('*')
-                .eq('boundary_id', boundaryId);
+            const [boundaryRes, objectsRes] = await Promise.all([
+                supabaseClient.from('boundaries').select('*').eq('id', boundaryId).single(),
+                supabaseClient.from('survey_objects').select('*').eq('boundary_id', boundaryId)
+            ]);
 
-            if (error || !allData) {
-                alert('Gagal memuat data objek untuk di-export.');
+            const boundaryData = boundaryRes.data;
+            const allData = objectsRes.data;
+
+            if (boundaryRes.error && !boundaryData) {
+                alert('Gagal memuat data boundary untuk di-export.');
                 return;
             }
             
             let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>Hasil Survey GIS Supabase</name>`;
+    <name>Hasil Survey GIS Supabase - ${boundaryData ? escapeXml(boundaryData.name) : 'Export'}</name>`;
 
-            allData.forEach(item => {
-                kmlContent += `
+            // 1. Export Boundary Features (Polygon, LineString, dll dari Supabase)[cite: 1]
+            if (boundaryData && boundaryData.geojson) {
+                const geojson = boundaryData.geojson;
+                if (geojson.type === 'FeatureCollection' && geojson.features) {
+                    geojson.features.forEach(f => {
+                        kmlContent += geoJsonFeatureToKml(f);
+                    });
+                } else if (geojson.type === 'Feature') {
+                    kmlContent += geoJsonFeatureToKml(geojson);
+                } else if (geojson.type && geojson.coordinates) {
+                    kmlContent += geoJsonFeatureToKml({ geometry: geojson, properties: { name: boundaryData.name } });
+                }
+            }
+
+            // 2. Export Survey Objects / Titik Manual / GPS[cite: 1]
+            if (allData && allData.length > 0) {
+                allData.forEach(item => {
+                    kmlContent += `
     <Placemark>
-      <name>${item.title}</name>
-      <description>Surveyor: ${item.surveyor}, Waktu: ${item.timestamp}</description>
+      <name>${escapeXml(item.title)}</name>
+      <description>Surveyor: ${escapeXml(item.surveyor)}, Waktu: ${escapeXml(item.timestamp)}</description>
       <Point>
         <coordinates>${item.lng},${item.lat},0</coordinates>
       </Point>
     </Placemark>`;
-            });
+                });
+            }
 
             kmlContent += `
   </Document>
@@ -596,7 +679,7 @@
             const url = URL.createObjectURL(content);
             const a = document.createElement('a');
             a.href = url;
-            a.download = "hasil_survey_supabase.kmz";
+            a.download = `hasil_survey_${boundaryData && boundaryData.name ? boundaryData.name.replace(/[^a-zA-Z0-9]/g, '_') : 'supabase'}.kmz`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
