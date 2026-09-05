@@ -4,15 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aplikasi Survey GIS Supabase</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- JSZip for KMZ extraction -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <!-- toGeoJSON for KML conversion -->
     <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
-    <!-- Supabase JS Client CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         #map { height: calc(100vh - 4rem); }
@@ -20,7 +15,6 @@
 </head>
 <body class="bg-gray-100 flex flex-col h-screen overflow-hidden">
 
-    <!-- Top Navigation Bar -->
     <header class="bg-blue-600 text-white shadow-md h-16 flex items-center justify-between px-4 z-20">
         <div class="flex items-center space-x-3">
             <span class="text-xl font-bold">🗺️ GIS Survey App (Supabase)</span>
@@ -40,17 +34,14 @@
         </div>
     </header>
 
-    <!-- Main Container -->
     <div class="flex flex-1 relative">
         
-        <!-- Sidebar Panel -->
         <aside class="w-80 bg-white shadow-lg flex flex-col z-10 overflow-y-auto">
             <div class="p-4 border-b">
                 <h2 class="font-bold text-gray-700 text-lg">Panel Kontrol</h2>
                 <p class="text-xs text-gray-500">Kelola boundary & objek survey via Supabase</p>
             </div>
 
-            <!-- Admin Section: Upload KMZ -->
             <div id="admin-section" class="p-4 border-b bg-gray-50">
                 <h3 class="font-semibold text-sm text-blue-600 mb-2">📤 Upload KMZ (Admin Only)</h3>
                 <input type="file" id="kmz-file-input" accept=".kmz, .kml" class="block w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mb-2">
@@ -59,7 +50,6 @@
                 </button>
             </div>
 
-            <!-- Boundary & Layer Selection -->
             <div class="p-4 border-b">
                 <h3 class="font-semibold text-sm text-gray-700 mb-2">📂 Pilih Area / Boundary</h3>
                 <select id="boundary-select" class="w-full text-sm border rounded p-2 focus:ring focus:ring-blue-300">
@@ -67,7 +57,6 @@
                 </select>
             </div>
 
-            <!-- Object Interaction Tools -->
             <div class="p-4 border-b">
                 <h3 class="font-semibold text-sm text-gray-700 mb-2">📍 Tambah Objek Survey</h3>
                 <div class="grid grid-cols-2 gap-2">
@@ -77,7 +66,6 @@
                 <p class="text-[11px] text-gray-400 mt-2">Gunakan tombol '+ Titik Manual' lalu klik peta, atau gunakan ikon <b>Lokasi Saya</b> di pojok kanan bawah peta.</p>
             </div>
 
-            <!-- Object List -->
             <div class="p-4 flex-1">
                 <h3 class="font-semibold text-sm text-gray-700 mb-2">📋 Daftar Objek di Peta</h3>
                 <div id="object-list" class="space-y-2 text-xs max-h-48 overflow-y-auto">
@@ -86,11 +74,9 @@
             </div>
         </aside>
 
-        <!-- Map Container -->
         <main class="flex-1 relative">
             <div id="map" class="w-full h-full"></div>
 
-            <!-- Floating Action Button: Lokasi Saya (Sudut Kanan Bawah) -->
             <button id="btn-my-location" class="absolute bottom-6 right-6 bg-white hover:bg-gray-100 text-blue-600 font-bold p-3 rounded-full shadow-2xl z-[400] flex items-center justify-center border border-gray-300 transition transform hover:scale-105" title="Lokasi Saya & Tambah Titik GPS">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -100,7 +86,6 @@
         </main>
     </div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // --- KONFIGURASI SUPABASE ---
@@ -196,7 +181,7 @@
             });
         }
 
-        // --- KMZ Upload & Simpan ke Supabase ---
+        // --- KMZ Upload & Simpan Boundary serta Objek Titik ke Supabase ---
         const uploadBtn = document.getElementById('upload-btn');
         uploadBtn.addEventListener('click', async () => {
             const fileInput = document.getElementById('kmz-file-input');
@@ -228,21 +213,55 @@
                 const dom = new DOMParser().parseFromString(kmlText, 'text/xml');
                 const convertedGeoJSON = toGeoJSON.kml(dom);
 
+                const boundaryId = 'b_' + Date.now();
                 const newBoundary = {
-                    id: 'b_' + Date.now(),
+                    id: boundaryId,
                     name: fileName,
                     geojson: convertedGeoJSON
                 };
 
+                // Simpan Boundary utama ke Supabase
                 const { error } = await supabaseClient.from('boundaries').insert([newBoundary]);
                 if (error) throw error;
 
-                alert('File KMZ berhasil diunggah dan disimpan ke Supabase!');
+                // Ekstrak semua item Point / Placemark di dalam file KMZ/KML agar masuk ke tabel survey_objects
+                const surveyObjectsToInsert = [];
+                if (convertedGeoJSON && convertedGeoJSON.features) {
+                    convertedGeoJSON.features.forEach((feat, index) => {
+                        if (feat.geometry && feat.geometry.type === 'Point') {
+                            const coords = feat.geometry.coordinates; // [lng, lat]
+                            const lng = coords[0];
+                            const lat = coords[1];
+                            const title = (feat.properties && (feat.properties.name || feat.properties.title)) 
+                                ? (feat.properties.name || feat.properties.title) 
+                                : `Objek KMZ ${index + 1}`;
+                            
+                            surveyObjectsToInsert.push({
+                                id: 'obj_' + Date.now() + '_' + index,
+                                boundary_id: boundaryId,
+                                lat: lat,
+                                lng: lng,
+                                title: title,
+                                surveyor: currentUserLabel.innerText,
+                                timestamp: new Date().toLocaleTimeString()
+                            });
+                        }
+                    });
+                }
+
+                if (surveyObjectsToInsert.length > 0) {
+                    const { error: objError } = await supabaseClient.from('survey_objects').insert(surveyObjectsToInsert);
+                    if (objError) {
+                        console.error('Gagal menyimpan objek titik dari KMZ:', objError);
+                    }
+                }
+
+                alert('File KMZ beserta semua item/titik di dalamnya berhasil diunggah & disimpan ke Supabase!');
                 fileInput.value = '';
                 await loadBoundaries();
                 
-                document.getElementById('boundary-select').value = newBoundary.id;
-                loadBoundaryToMap(newBoundary.id);
+                document.getElementById('boundary-select').value = boundaryId;
+                loadBoundaryToMap(boundaryId);
 
             } catch (error) {
                 console.error(error);
@@ -252,7 +271,7 @@
             }
         });
 
-        // --- Load Boundary ke Peta ---
+        // --- Load Boundary ke Peta (Kecuali Point agar di-handle oleh survey_objects) ---
         async function loadBoundaryToMap(boundaryId) {
             currentLayerGroup.clearLayers();
             if (!boundaryId) {
@@ -269,11 +288,18 @@
             
             if (data && data.geojson) {
                 const layer = L.geoJSON(data.geojson, {
+                    filter: function(feature) {
+                        // Filter agar geometri Point tidak digambar ganda di sini, melainkan lewat renderObjects()
+                        return feature.geometry && feature.geometry.type !== 'Point';
+                    },
                     style: { color: "#3b82f6", weight: 2, fillOpacity: 0.1 }
                 }).addTo(currentLayerGroup);
                 
                 try {
-                    map.fitBounds(layer.getBounds());
+                    const bounds = layer.getBounds();
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds);
+                    }
                 } catch(e) {}
             }
             renderObjects();
@@ -331,6 +357,13 @@
                 `;
                 objectListEl.appendChild(itemDiv);
             });
+
+            // Jika boundary polygon kosong tapi ada objek titik, sesuaikan zoom peta ke titik-titik tersebut
+            if (drawnItems.getLayers().length > 0 && currentLayerGroup.getLayers().length === 0) {
+                try {
+                    map.fitBounds(drawnItems.getBounds(), { padding: [50, 50] });
+                } catch(e) {}
+            }
         }
 
         window.focusObject = function(lat, lng) {
