@@ -113,24 +113,25 @@
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- Inisialisasi Peta & Basemaps (Mengatasi Error "map data not yet available" di Zoom Tinggi) ---
+        // --- Inisialisasi Peta & Basemaps (Batasi maxZoom & maxNativeZoom ke 19 untuk Esri & OSM) ---
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 21,
+            maxZoom: 19,
             maxNativeZoom: 19,
             attribution: '&copy; OpenStreetMap contributors'
         });
 
         const earthLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 21,
+            maxZoom: 19,
             maxNativeZoom: 19,
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            attribution: 'Tiles &copy; Esri'
         });
 
         const map = L.map('map', {
             center: [-2.548926, 118.014863],
             zoom: 5,
-            layers: [earthLayer], // Default diset ke earthLayer agar langsung terlihat
-            zoomControl: false
+            layers: [earthLayer], // Default mode earth
+            zoomControl: false,
+            maxZoom: 19 // Membatasi batas maksimum zoom peta secara global untuk mencegah error tile tidak tersedia
         });
 
         L.control.zoom({ position: 'topleft' }).addTo(map);
