@@ -210,7 +210,7 @@
             return { type: 'Homepass', cleanTitle: title };
         }
 
-        // [PERBAIKAN UTAMA] Fungsi escapeHtml yang benar dan aman dari XSS serta Error Sintaksis
+        // [PERBAIKAN UTAMA] Fungsi escapeHtml yang aman dan benar mencegah XSS
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
@@ -526,7 +526,8 @@
             }
         };
 
-        supabaseClient.channel('public:survey_objects')
+        // Realtime Subscription
+        supabaseClient.channel('survey_objects_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'survey_objects' }, payload => {
                 const currentBoundaryId = document.getElementById('boundary-select').value;
                 const { eventType, new: newRec, old: oldRec } = payload;
@@ -711,7 +712,7 @@
         });
 
         // ==========================================
-        // 6. EXPORT KMZ LOGIC (Diperbarui dengan Icon Valid Google Earth)
+        // 6. EXPORT KMZ LOGIC
         // ==========================================
         function geometryToKml(geom) {
             if (!geom) return '';
