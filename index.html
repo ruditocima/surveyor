@@ -255,6 +255,7 @@
             return { type: 'Homepass', cleanTitle: title };
         }
 
+        // Perbaikan: Fungsi escapeHtml yang aman dari XSS
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             const map = {
@@ -279,25 +280,38 @@
             return inside;
         }
 
+        // Perbaikan: Dukungan pengecekan lubang polygon (polygon holes) secara akurat
         function isPointInsideBoundary(lat, lng, geojson) {
             if (!geojson || !geojson.features) return true;
             let pt = [lng, lat];
             let insideAny = false;
+
+            function checkPolygonRings(coordinates) {
+                if (!coordinates || coordinates.length === 0) return false;
+                if (!pointInPolygon(pt, coordinates[0])) return false;
+                for (let i = 1; i < coordinates.length; i++) {
+                    if (pointInPolygon(pt, coordinates[i])) {
+                        return false; // Berada di dalam lubang (hole) berarti di luar polygon
+                    }
+                }
+                return true;
+            }
+
             for(let feature of geojson.features) {
                 let geom = feature.geometry;
                 if(!geom) continue;
                 if (geom.type === 'Polygon') {
-                    if (pointInPolygon(pt, geom.coordinates[0])) insideAny = true;
+                    if (checkPolygonRings(geom.coordinates)) insideAny = true;
                 } else if (geom.type === 'MultiPolygon') {
                     for (let poly of geom.coordinates) {
-                        if (pointInPolygon(pt, poly[0])) insideAny = true;
+                        if (checkPolygonRings(poly)) insideAny = true;
                     }
                 } else if (geom.type === 'GeometryCollection') {
                     for(let g of geom.geometries) {
-                        if(g.type === 'Polygon' && pointInPolygon(pt, g.coordinates[0])) insideAny = true;
+                        if(g.type === 'Polygon' && checkPolygonRings(g.coordinates)) insideAny = true;
                         if(g.type === 'MultiPolygon') {
                             for(let poly of g.coordinates) {
-                                if(pointInPolygon(pt, poly[0])) insideAny = true;
+                                if(checkPolygonRings(poly)) insideAny = true;
                             }
                         }
                     }
@@ -519,7 +533,6 @@
 
                 objectListEl.innerHTML = `
                     <div class="space-y-2">
-                        <!-- Folder Homepass -->
                         <div class="border rounded bg-white shadow-sm overflow-hidden">
                             <div class="folder-header flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 cursor-pointer select-none" data-folder="Homepass">
                                 <div class="flex items-center space-x-2">
@@ -533,7 +546,6 @@
                             </div>
                         </div>
 
-                        <!-- Folder Pole -->
                         <div class="border rounded bg-white shadow-sm overflow-hidden">
                             <div class="folder-header flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 cursor-pointer select-none" data-folder="Pole">
                                 <div class="flex items-center space-x-2">
