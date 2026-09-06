@@ -144,7 +144,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // ==========================================
-        // 1. KONFIGURASI SUPABASE & MAP INIT
+        // 1. KONFIGURASI SUPABASE & MAP INIT[cite: 1]
         // ==========================================
         const SUPABASE_URL = 'https://dqlbumvnklzvzekxcawc.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxbGJ1bXZua2x6dnpla3hjYXdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjA4NjMsImV4cCI6MjEwNDE5Njg2M30.LdtDCrgVEYNm7PQ5L57-OuWB38Ada8o2q-TZsNfQRgo';
@@ -169,16 +169,49 @@
         const surveyMarkers = new Map();
         const surveyListItems = new Map();
 
-        // [PERBAIKAN] Menggunakan divIcon aman berbasis SVG agar tidak terjadi broken image icon
-        const customSurveyIcon = L.divIcon({
-            className: 'custom-survey-marker',
-            html: '<div style="background-color: #2563eb; width: 28px; height: 28px; border: 3px solid white; border-radius: 50%; box-shadow: 0 3px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;">📍</div>',
-            iconSize: [28, 28],
-            iconAnchor: [14, 14],
-            popupAnchor: [0, -14]
+        // [PERBAIKAN] Ikon bersih berbasis SVG untuk Homepass, Pole Ext, dan Pole New (tanpa link eksternal rusak)[cite: 1]
+        const homepassIcon = L.divIcon({
+            className: 'custom-survey-marker homepass-icon',
+            html: '<div style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: flex; align-items: center; justify-content: center;"><svg width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.373 0 0 5.373 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.373 18.627 0 12 0Z" fill="#2563EB"/><circle cx="12" cy="12" r="5" fill="white"/></svg></div>',
+            iconSize: [24, 32],
+            iconAnchor: [12, 32],
+            popupAnchor: [0, -32]
         });
 
-        // [PERBAIKAN] Fungsi escapeHtml yang aman dari Syntax Error dan XSS
+        const poleExtIcon = L.divIcon({
+            className: 'custom-survey-marker pole-ext-icon',
+            html: '<div style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: flex; align-items: center; justify-content: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="#2563EB" stroke="white" stroke-width="3"/></svg></div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+            popupAnchor: [0, -12]
+        });
+
+        const poleNewIcon = L.divIcon({
+            className: 'custom-survey-marker pole-new-icon',
+            html: '<div style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: flex; align-items: center; justify-content: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="#DC2626" stroke="white" stroke-width="3"/></svg></div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+            popupAnchor: [0, -12]
+        });
+
+        function getObjectTypeAndCleanName(title) {
+            if (!title) return { type: 'Homepass', cleanTitle: 'NN' };
+            if (title.startsWith('[PoleNew]')) {
+                return { type: 'PoleNew', cleanTitle: title.replace('[PoleNew]', '').trim() };
+            } else if (title.startsWith('[PoleExt]')) {
+                return { type: 'PoleExt', cleanTitle: title.replace('[PoleExt]', '').trim() };
+            } else if (title.startsWith('[Homepass]')) {
+                return { type: 'Homepass', cleanTitle: title.replace('[Homepass]', '').trim() };
+            }
+            if (title === 'New' || title.toLowerCase().includes('pole new')) {
+                return { type: 'PoleNew', cleanTitle: title };
+            } else if (title === 'Ext' || title.toLowerCase().includes('pole ext')) {
+                return { type: 'PoleExt', cleanTitle: title };
+            }
+            return { type: 'Homepass', cleanTitle: title };
+        }
+
+        // [PERBAIKAN] Fungsi escapeHtml yang aman dari Syntax Error dan XSS[cite: 1]
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
@@ -190,7 +223,7 @@
         }
 
         // ==========================================
-        // 2. UI & ROLE MANAGEMENT
+        // 2. UI & ROLE MANAGEMENT[cite: 1]
         // ==========================================
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -231,7 +264,7 @@
         }
 
         // ==========================================
-        // 3. BOUNDARY & KMZ UPLOAD LOGIC
+        // 3. BOUNDARY & KMZ UPLOAD LOGIC[cite: 1]
         // ==========================================
         async function loadBoundaries() {
             const select = document.getElementById('boundary-select');
@@ -343,7 +376,7 @@
         });
 
         // ==========================================
-        // 4. LOGIKA OBJEK SURVEY (GRANULAR REALTIME)
+        // 4. LOGIKA OBJEK SURVEY (GRANULAR REALTIME)[cite: 1]
         // ==========================================
         async function loadObjectsFromDB() {
             const boundaryId = document.getElementById('boundary-select').value;
@@ -384,8 +417,13 @@
             const isSurveyor = roleSelector.value === 'surveyor';
             const objectListEl = document.getElementById('object-list');
             
+            const parsed = getObjectTypeAndCleanName(item.title);
+            let markerIcon = homepassIcon;
+            if (parsed.type === 'PoleNew') markerIcon = poleNewIcon;
+            else if (parsed.type === 'PoleExt') markerIcon = poleExtIcon;
+
             const marker = L.marker([item.lat, item.lng], {
-                icon: customSurveyIcon,
+                icon: markerIcon,
                 draggable: !isSurveyor
             });
 
@@ -401,7 +439,8 @@
             const popupContent = document.createElement('div');
             popupContent.className = 'text-xs min-w-[160px] pb-1';
             popupContent.innerHTML = `
-                <div class="border-b pb-1 mb-1 font-bold text-[13px] text-gray-800 break-words">${escapeHtml(item.title)}</div>
+                <div class="border-b pb-1 mb-1 font-bold text-[13px] text-gray-800 break-words">${escapeHtml(parsed.cleanTitle)}</div>
+                <div class="text-gray-600 mb-0.5"><span class="font-semibold">Kategori:</span> ${escapeHtml(parsed.type)}</div>
                 <div class="text-gray-600 mb-0.5"><span class="font-semibold">Oleh:</span> ${escapeHtml(item.surveyor)}</div>
                 <div class="text-gray-500"><span class="font-semibold">Waktu:</span> ${escapeHtml(item.timestamp)}</div>
             `;
@@ -413,7 +452,7 @@
                 const editBtn = document.createElement('button');
                 editBtn.className = 'bg-amber-500 hover:bg-amber-600 text-white px-2 py-1.5 rounded flex-1 shadow-sm font-semibold';
                 editBtn.innerText = 'Edit';
-                editBtn.onclick = () => editObject(item.id, item.title);
+                editBtn.onclick = () => editObject(item.id, parsed.cleanTitle);
 
                 const deleteBtn = document.createElement('button');
                 deleteBtn.className = 'bg-red-500 hover:bg-red-600 text-white px-2 py-1.5 rounded flex-1 shadow-sm font-semibold';
@@ -433,8 +472,8 @@
             itemDiv.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div class="flex-1 min-w-0 pr-2">
-                        <p class="font-bold text-gray-800 truncate text-[13px]" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</p>
-                        <p class="text-[10px] text-gray-500 mt-0.5">${escapeHtml(item.surveyor)} | ${escapeHtml(item.timestamp)}</p>
+                        <p class="font-bold text-gray-800 truncate text-[13px]" title="${escapeHtml(parsed.cleanTitle)}">${escapeHtml(parsed.cleanTitle)}</p>
+                        <p class="text-[10px] text-gray-500 mt-0.5"><span class="font-semibold text-blue-600">${escapeHtml(parsed.type)}</span> | ${escapeHtml(item.surveyor)} | ${escapeHtml(item.timestamp)}</p>
                     </div>
                 </div>
             `;
@@ -446,7 +485,7 @@
                 const editLink = document.createElement('button');
                 editLink.className = 'text-amber-600 hover:text-amber-800 text-[11px] font-bold px-1';
                 editLink.innerText = 'Edit';
-                editLink.onclick = () => editObject(item.id, item.title);
+                editLink.onclick = () => editObject(item.id, parsed.cleanTitle);
                 actionDiv.appendChild(editLink);
             }
 
@@ -471,7 +510,14 @@
         window.editObject = async (id, currentTitle) => {
             const newTitle = prompt('Edit nama objek survey:', currentTitle);
             if (!newTitle || !newTitle.trim()) return;
-            const { error } = await supabaseClient.from('survey_objects').update({ title: newTitle.trim() }).eq('id', id);
+            
+            // Keep existing prefix type if present in DB title
+            const { data: currentObj } = await supabaseClient.from('survey_objects').select('title').eq('id', id).single();
+            let prefix = '[Homepass] ';
+            if (currentObj?.title?.startsWith('[PoleNew]')) prefix = '[PoleNew] ';
+            else if (currentObj?.title?.startsWith('[PoleExt]')) prefix = '[PoleExt] ';
+
+            const { error } = await supabaseClient.from('survey_objects').update({ title: prefix + newTitle.trim() }).eq('id', id);
             if (error) alert('Gagal mengedit: ' + error.message);
         };
 
@@ -519,7 +565,7 @@
             }).subscribe();
 
         // ==========================================
-        // 5. TAMBAH TITIK & GEOLOKASI GPS
+        // 5. TAMBAH TITIK & GEOLOKASI GPS[cite: 1]
         // ==========================================
         const btnAddMarker = document.getElementById('btn-add-marker');
         const modeStatus = document.getElementById('mode-status');
@@ -595,14 +641,22 @@
         modalSaveBtn.onclick = async () => {
             if (!pendingLatLng) return;
             const boundaryId = document.getElementById('boundary-select').value;
-            const title = modalObjectName.value.trim() || 'Objek Baru';
+            const category = modalCategorySelect.value;
+            const poleType = modalPoleSelect.value;
+            const rawName = modalObjectName.value.trim() || 'Objek Baru';
+
+            let storedTitle = '[Homepass] ' + rawName;
+            if (category === 'Pole') {
+                if (poleType === 'New') storedTitle = '[PoleNew] ' + rawName;
+                else if (poleType === 'Ext') storedTitle = '[PoleExt] ' + rawName;
+            }
 
             const newObj = {
                 id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
                 boundary_id: boundaryId,
                 lat: pendingLatLng.lat, 
                 lng: pendingLatLng.lng,
-                title: title,
+                title: storedTitle,
                 surveyor: currentUserLabel.innerText,
                 timestamp: new Date().toLocaleTimeString('id-ID')
             };
@@ -647,7 +701,7 @@
                     await supabaseClient.from('survey_objects').insert([{
                         id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
                         boundary_id: boundaryId, lat, lng,
-                        title: title.trim(),
+                        title: '[Homepass] ' + title.trim(),
                         surveyor: currentUserLabel.innerText,
                         timestamp: new Date().toLocaleTimeString('id-ID')
                     }]);
@@ -659,7 +713,7 @@
         });
 
         // ==========================================
-        // 6. EXPORT KMZ LOGIC
+        // 6. EXPORT KMZ LOGIC[cite: 1]
         // ==========================================
         function geometryToKml(geom) {
             if (!geom) return '';
@@ -702,7 +756,15 @@
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>Hasil Survey - ${boundaryData ? escapeHtml(boundaryData.name) : 'Export'}</name>
-    <Style id="surveyIcon"><IconStyle><Icon><href>https://maps.google.com/mapfiles/kml/paddle/blu-blank.png</href></Icon></IconStyle></Style>
+    <Style id="iconHomepass">
+      <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/paddle/blu-blank.png</href></Icon></IconStyle>
+    </Style>
+    <Style id="iconPoleExt">
+      <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
+    </Style>
+    <Style id="iconPoleNew">
+      <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
+    </Style>
     <Style id="boundaryStyle">
       <PolyStyle><color>4Df6823b</color><fill>1</fill><outline>1</outline></PolyStyle>
       <LineStyle><color>fff6823b</color><width>2</width></LineStyle>
@@ -715,11 +777,16 @@
                 }
 
                 allData.forEach(item => {
+                    const parsed = getObjectTypeAndCleanName(item.title);
+                    let styleUrl = '#iconHomepass';
+                    if (parsed.type === 'PoleNew') styleUrl = '#iconPoleNew';
+                    else if (parsed.type === 'PoleExt') styleUrl = '#iconPoleExt';
+
                     kmlContent += `
     <Placemark>
-      <name>${escapeHtml(item.title)}</name>
-      <description>Surveyor: ${escapeHtml(item.surveyor)}, Waktu: ${escapeHtml(item.timestamp)}</description>
-      <styleUrl>#surveyIcon</styleUrl>
+      <name>${escapeHtml(parsed.cleanTitle)}</name>
+      <description>Kategori: ${escapeHtml(parsed.type)}, Surveyor: ${escapeHtml(item.surveyor)}, Waktu: ${escapeHtml(item.timestamp)}</description>
+      <styleUrl>${styleUrl}</styleUrl>
       <Point><coordinates>${item.lng},${item.lat},0</coordinates></Point>
     </Placemark>`;
                 });
@@ -742,7 +809,7 @@
         });
 
         // ==========================================
-        // INIT APLIKASI
+        // INIT APLIKASI[cite: 1]
         // ==========================================
         checkSupabaseConnection();
         loadBoundaries();
