@@ -12,6 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         #map { width: 100%; height: 100%; }
+        /* Kursor crosshair akan aktif ketika area boundary dipilih */
         .leaflet-container.crosshair-cursor-enabled { cursor: crosshair !important; }
         .leaflet-popup-content { margin: 12px; min-width: 150px; }
     </style>
@@ -80,8 +81,8 @@
                 <div id="export-kmz-container" class="grid grid-cols-1 gap-2 hidden">
                     <button id="btn-export-kmz" class="bg-amber-500 hover:bg-amber-600 text-white text-xs py-2 px-2 rounded font-medium shadow-sm transition">📥 Export KMZ</button>
                 </div>
-                <div id="mode-status" class="mt-2 text-[11px] font-semibold text-emerald-600 bg-emerald-50 p-2 rounded">
-                    ⚡ Sentuh/klik langsung di area peta untuk menambah objek survey.
+                <div id="mode-status" class="mt-2 text-[11px] font-semibold text-emerald-600 bg-emerald-50 p-2 rounded hidden">
+                    ⚡ Titik sasaran aktif. Sentuh/klik di dalam area boundary untuk menambah objek survey.
                 </div>
             </div>
 
@@ -108,6 +109,7 @@
         </main>
     </div>
 
+    <!-- Login Modal -->
     <div id="login-modal" class="fixed inset-0 bg-black/70 z-[99999] flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
             <div class="bg-blue-600 text-white px-6 py-4 font-bold text-base flex items-center justify-between">
@@ -132,6 +134,7 @@
         </div>
     </div>
 
+    <!-- Survey Modal -->
     <div id="survey-modal" class="fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
             <div class="bg-blue-600 text-white px-4 py-3 font-bold text-sm flex justify-between items-center">
@@ -337,7 +340,9 @@
 
         const surveyMarkers = new Map();
         const surveyListItems = new Map();
-        let folderOpenState = { Homepass: false, Pole: false };
+        
+        // FIX: Ubah state default menjadi true agar saat poin baru di add, user tidak panik mencarinya
+        let folderOpenState = { Homepass: true, Pole: true };
 
         function getCustomIcon(parsed) {
             if (parsed.type === 'Homepass') {
@@ -442,6 +447,7 @@
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebar-toggle');
         const sidebarClose = document.getElementById('sidebar-close');
+        const modeStatus = document.getElementById('mode-status');
 
         function toggleSidebar() { sidebar.classList.toggle('-translate-x-full'); }
         sidebarToggle.addEventListener('click', toggleSidebar);
@@ -544,7 +550,9 @@
                 await loadBoundaries();
                 
                 document.getElementById('boundary-select').value = boundaryId;
-                loadBoundaryToMap(boundaryId);
+                
+                // Trigger event change manual
+                document.getElementById('boundary-select').dispatchEvent(new Event('change'));
 
             } catch (err) {
                 showToast('Gagal memproses file: ' + err.message, 'error');
@@ -594,7 +602,19 @@
         }
 
         document.getElementById('boundary-select').addEventListener('change', (e) => {
-            loadBoundaryToMap(e.target.value);
+            const val = e.target.value;
+            loadBoundaryToMap(val);
+            
+            // FIX: Aktivasi cursor crosshair hanya jika ada boundary yang dipilih
+            const mapEl = document.getElementById('map');
+            if (val) {
+                mapEl.classList.add('crosshair-cursor-enabled');
+                modeStatus.classList.remove('hidden');
+            } else {
+                mapEl.classList.remove('crosshair-cursor-enabled');
+                modeStatus.classList.add('hidden');
+            }
+
             if (window.innerWidth < 768) sidebar.classList.add('-translate-x-full');
         });
 
@@ -726,7 +746,18 @@
                     marker.setLatLng([item.lat, item.lng]);
                     return;
                 }
+
                 const newPos = e.target.getLatLng();
+
+                // FIX: Tambahkan validasi drag untuk Role Updater agar tidak bisa ditarik keluar boundary
+                if (currentRole === 'updater') {
+                    if (!isPointInsideBoundary(newPos.lat, newPos.lng, currentBoundaryGeoJSON)) {
+                        showToast('Titik tidak boleh digeser ke luar area boundary!', 'error');
+                        marker.setLatLng([item.lat, item.lng]); // Revert posisi
+                        return;
+                    }
+                }
+
                 const { error } = await supabaseClient.from('survey_objects').update({ lat: newPos.lat, lng: newPos.lng }).eq('id', item.id);
                 if (error) {
                     showToast('Gagal mengupdate posisi: ' + error.message, 'error');
@@ -977,6 +1008,8 @@
             if (!navigator.geolocation) return showToast('Browser tidak mendukung akses GPS.', 'error');
             
             btnMyLocation.classList.add('animate-pulse', 'bg-blue-100');
+            showToast('Mencari satelit GPS...', 'info');
+            
             navigator.geolocation.getCurrentPosition(async (position) => {
                 btnMyLocation.classList.remove('animate-pulse', 'bg-blue-100');
                 const lat = position.coords.latitude, lng = position.coords.longitude;
@@ -997,10 +1030,14 @@
                 const boundaryId = document.getElementById('boundary-select').value;
                 if (!boundaryId) return;
 
-                if (confirm('Simpan koordinat GPS ini sebagai titik survey baru?')) {
-                    pendingLatLng = { lat, lng };
-                    openSurveyModal();
-                }
+                // FIX: Beri jeda sedikit agar map selesai animasi panning sebelum menampilkan konfirmasi
+                setTimeout(() => {
+                    if (confirm('Simpan koordinat GPS ini sebagai titik survey baru?')) {
+                        pendingLatLng = { lat, lng };
+                        openSurveyModal();
+                    }
+                }, 500);
+                
             }, (err) => {
                 btnMyLocation.classList.remove('animate-pulse', 'bg-blue-100');
                 showToast('Gagal melacak lokasi GPS: ' + err.message, 'error');
