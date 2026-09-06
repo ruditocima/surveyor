@@ -22,8 +22,7 @@
 </head>
 <body class="bg-gray-100 flex flex-col h-[100dvh] overflow-hidden">
 
-    <!-- HEADER -->
-    <header class="bg-blue-600 text-white shadow-md h-12 flex items-center justify-between px-4 z-20 shrink-0">
+    <header id="app-header" class="bg-blue-600 text-white shadow-md h-12 flex items-center justify-between px-4 z-20 shrink-0 hidden">
         <div class="flex items-center space-x-3">
             <button id="sidebar-toggle" class="md:hidden text-white focus:outline-none p-1 rounded hover:bg-blue-700 transition" title="Toggle Sidebar">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -51,8 +50,7 @@
         </div>
     </header>
 
-    <!-- MAIN BODY -->
-    <div class="flex flex-1 relative overflow-hidden">
+    <div id="app-main" class="flex flex-1 relative overflow-hidden hidden">
         
         <aside id="sidebar" class="absolute md:relative z-30 inset-y-0 left-0 w-80 bg-white shadow-lg flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out overflow-y-auto">
             <div class="p-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
@@ -112,8 +110,7 @@
         </main>
     </div>
 
-    <!-- LOGIN MODAL -->
-    <div id="login-modal" class="fixed inset-0 bg-black/70 z-[99999] hidden flex items-center justify-center p-4">
+    <div id="login-modal" class="fixed inset-0 bg-black/70 z-[99999] flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
             <div class="bg-blue-600 text-white px-6 py-4 font-bold text-base flex items-center justify-between">
                 <span>🔐 Login GIS Survey Pro</span>
@@ -137,7 +134,6 @@
         </div>
     </div>
 
-    <!-- SURVEY MODAL -->
     <div id="survey-modal" class="fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
             <div class="bg-blue-600 text-white px-4 py-3 font-bold text-sm flex justify-between items-center">
@@ -222,6 +218,17 @@
             loginModal.classList.add('hidden');
             if (logoutBtn) logoutBtn.classList.remove('hidden');
 
+            // Tampilkan kembali Header dan Main App Content setelah login berhasil
+            document.getElementById('app-header').classList.remove('hidden');
+            document.getElementById('app-main').classList.remove('hidden');
+
+            // Memperbarui ukuran peta Leaflet agar merender dengan sempurna setelah container ditampilkan
+            setTimeout(() => {
+                if (window.map) {
+                    window.map.invalidateSize();
+                }
+            }, 150);
+
             let userRole = 'surveyor';
             let userName = user.email.split('@')[0];
 
@@ -302,6 +309,7 @@
                 closeOnZeroBearing: false
             }
         });
+        window.map = map; // Global reference untuk invalidateSize
         L.control.zoom({ position: 'topleft' }).addTo(map);
 
         const baseMaps = { "🌍 Tampilan Earth (Satelit)": earthLayer, "🗺️ Peta Jalan (Standard)": osmLayer };
@@ -373,11 +381,11 @@
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+                .replace(/&/g, "&")
+                .replace(/</g, "<")
+                .replace(/>/g, ">")
+                .replace(/"/g, """)
+                .replace(/'/g, "'");
         }
 
         function pointInPolygon(point, polygon) {
