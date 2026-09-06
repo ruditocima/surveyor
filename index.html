@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <!-- Pastikan versi GeoJSON fallback aman -->
     <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -15,7 +14,6 @@
         .leaflet-container.crosshair-cursor-enabled {
             cursor: crosshair !important;
         }
-        /* Styling tambahan untuk pop-up agar lebih rapi */
         .leaflet-popup-content {
             margin: 12px;
             min-width: 150px;
@@ -24,7 +22,6 @@
 </head>
 <body class="bg-gray-100 flex flex-col h-screen overflow-hidden">
 
-    <!-- HEADER -->
     <header class="bg-blue-600 text-white shadow-md h-16 flex items-center justify-between px-4 z-20">
         <div class="flex items-center space-x-3">
             <button id="sidebar-toggle" class="md:hidden text-white focus:outline-none p-1 rounded hover:bg-blue-700" title="Toggle Sidebar">
@@ -51,7 +48,6 @@
 
     <div class="flex flex-1 relative overflow-hidden">
         
-        <!-- SIDEBAR -->
         <aside id="sidebar" class="absolute md:relative z-30 inset-y-0 left-0 w-80 bg-white shadow-lg flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out overflow-y-auto">
             <div class="p-4 border-b flex justify-between items-center bg-gray-50">
                 <div>
@@ -100,7 +96,6 @@
             </div>
         </aside>
 
-        <!-- MAP CONTAINER -->
         <main class="flex-1 relative">
             <div id="map" class="w-full h-full z-10"></div>
 
@@ -113,7 +108,6 @@
         </main>
     </div>
 
-    <!-- MODAL KATEGORI & PENAMAAN TITIK MANUAL -->
     <div id="survey-modal" class="fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
             <div class="bg-blue-600 text-white px-4 py-3 font-bold text-sm flex justify-between items-center">
@@ -121,7 +115,6 @@
                 <button onclick="closeSurveyModal()" class="text-white hover:text-gray-200 text-lg font-bold">✕</button>
             </div>
             <div class="p-4 space-y-4">
-                <!-- Step 1: Pilih Kategori Utama -->
                 <div id="step-category" class="space-y-3">
                     <label class="block text-xs font-semibold text-gray-700">Kategori Titik:</label>
                     <select id="modal-category-select" class="w-full text-sm border-gray-300 rounded p-2 border bg-white focus:ring focus:ring-blue-200">
@@ -158,8 +151,8 @@
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 21, maxNativeZoom: 19, attribution: '&copy; OpenStreetMap' });
-        const earthLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 21, maxNativeZoom: 20, subdomains: ['0', '1', '2', '3'], attribution: '&copy; Google Satellite' });
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 21, maxNativeZoom: 19, attribution: '© OpenStreetMap' });
+        const earthLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 21, maxNativeZoom: 20, subdomains: ['0', '1', '2', '3'], attribution: '© Google Satellite' });
 
         const map = L.map('map', { center: [-2.548926, 118.014863], zoom: 5, layers: [earthLayer], zoomControl: false, maxZoom: 21 });
         L.control.zoom({ position: 'topleft' }).addTo(map);
@@ -167,25 +160,33 @@
         const baseMaps = { "🌍 Tampilan Earth (Satelit)": earthLayer, "🗺️ Peta Jalan (Standard)": osmLayer };
         L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 
-        let currentLayerGroup = L.layerGroup().addTo(map); // Untuk Boundary Polygon/Garis
-        let drawnItems = L.layerGroup().addTo(map);        // Untuk Titik Survey
+        let currentLayerGroup = L.layerGroup().addTo(map);
+        let drawnItems = L.layerGroup().addTo(map);
         
         let isAddingMarker = false;
         let userLocationMarker = null;
 
-        // State Management untuk Realtime (Mengatasi gangguan UI)
         const surveyMarkers = new Map();
         const surveyListItems = new Map();
 
-        // Ikon Custom (Telah diperbaiki ke HTTPS untuk mencegah error mixed-content)
-        const customSurveyIcon = L.icon({
-            iconUrl: 'https://maps.google.com/mapfiles/kml/paddle/blu-blank.png',
-            iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
+        // [PERBAIKAN] Menggunakan divIcon aman berbasis SVG agar tidak terjadi broken image icon
+        const customSurveyIcon = L.divIcon({
+            className: 'custom-survey-marker',
+            html: '<div style="background-color: #2563eb; width: 28px; height: 28px; border: 3px solid white; border-radius: 50%; box-shadow: 0 3px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;">📍</div>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+            popupAnchor: [0, -14]
         });
 
+        // [PERBAIKAN] Fungsi escapeHtml yang aman dari Syntax Error dan XSS
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
-            return String(unsafe).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[m]);
+            return String(unsafe)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         // ==========================================
@@ -213,7 +214,6 @@
                 currentUserLabel.innerText = 'Surveyor Lapangan';
                 resetAddMarkerMode();
             }
-            // Segarkan data agar hak akses edit/hapus dan draggability teraplikasi
             loadObjectsFromDB(); 
         }
         roleSelector.addEventListener('change', updateRoleUI);
@@ -277,12 +277,10 @@
 
                 const dom = new DOMParser().parseFromString(kmlText, 'text/xml');
                 
-                // Mencegah error diam-diam dari DOMParser jika XML korup
                 if (dom.querySelector('parsererror')) {
                     throw new Error("File KML/KMZ korup atau format XML tidak valid.");
                 }
 
-                // Fallback aman untuk memanggil library toGeoJSON
                 const tjParser = window.toGeoJSON || window.tj;
                 if (!tjParser) throw new Error("Library converter GeoJSON gagal dimuat.");
 
@@ -310,7 +308,7 @@
         async function loadBoundaryToMap(boundaryId) {
             currentLayerGroup.clearLayers();
             if (!boundaryId) {
-                loadObjectsFromDB(); // Akan mereset list
+                loadObjectsFromDB();
                 return;
             }
 
@@ -347,8 +345,6 @@
         // ==========================================
         // 4. LOGIKA OBJEK SURVEY (GRANULAR REALTIME)
         // ==========================================
-        
-        // Memuat Semua Data Titik (Terpanggil saat area berubah / ganti role)
         async function loadObjectsFromDB() {
             const boundaryId = document.getElementById('boundary-select').value;
             const objectListEl = document.getElementById('object-list');
@@ -384,15 +380,13 @@
             }
         }
 
-        // Merender Satu Objek secara Independen (Marker & List)
         function renderSingleObject(item) {
             const isSurveyor = roleSelector.value === 'surveyor';
             const objectListEl = document.getElementById('object-list');
             
-            // --- 1. Konfigurasi Marker ---
             const marker = L.marker([item.lat, item.lng], {
                 icon: customSurveyIcon,
-                draggable: !isSurveyor // Surveyor tidak boleh asal geser posisi
+                draggable: !isSurveyor
             });
 
             marker.on('dragend', async function(e) {
@@ -400,11 +394,10 @@
                 const { error } = await supabaseClient.from('survey_objects').update({ lat: newPos.lat, lng: newPos.lng }).eq('id', item.id);
                 if (error) {
                     alert('Gagal mengupdate posisi: ' + error.message);
-                    marker.setLatLng([item.lat, item.lng]); // Kembalikan posisi jika DB gagal
+                    marker.setLatLng([item.lat, item.lng]);
                 }
             });
 
-            // Pembuatan PopUp dengan DOM agar EventHandler jalan sempurna
             const popupContent = document.createElement('div');
             popupContent.className = 'text-xs min-w-[160px] pb-1';
             popupContent.innerHTML = `
@@ -435,7 +428,6 @@
             drawnItems.addLayer(marker);
             surveyMarkers.set(item.id, marker);
 
-            // --- 2. Konfigurasi List Sidebar ---
             const itemDiv = document.createElement('div');
             itemDiv.className = 'bg-white border border-gray-200 p-2.5 rounded shadow-sm flex flex-col space-y-2 hover:border-blue-300 transition';
             itemDiv.innerHTML = `
@@ -490,18 +482,15 @@
             }
         };
 
-        // --- Granular Realtime Subscription (Anti-Gangguan UX) ---
         supabaseClient.channel('public:survey_objects')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'survey_objects' }, payload => {
                 const currentBoundaryId = document.getElementById('boundary-select').value;
                 const { eventType, new: newRec, old: oldRec } = payload;
                 
-                // Tambah Data
                 if (eventType === 'INSERT' && newRec.boundary_id === currentBoundaryId) {
                     document.getElementById('empty-state')?.remove();
                     if (!surveyMarkers.has(newRec.id)) renderSingleObject(newRec);
                 } 
-                // Update Data (Edit Nama / Geser)
                 else if (eventType === 'UPDATE' && newRec.boundary_id === currentBoundaryId) {
                     if (surveyMarkers.has(newRec.id)) {
                         drawnItems.removeLayer(surveyMarkers.get(newRec.id));
@@ -513,7 +502,6 @@
                     }
                     renderSingleObject(newRec);
                 } 
-                // Hapus Data
                 else if (eventType === 'DELETE') {
                     if (surveyMarkers.has(oldRec.id)) {
                         drawnItems.removeLayer(surveyMarkers.get(oldRec.id));
@@ -531,12 +519,12 @@
             }).subscribe();
 
         // ==========================================
-        // 5. TAMBAH TITIK & GEOLOKASI GPS (DIPERBARUI DENGAN MODAL KATEGORI)
+        // 5. TAMBAH TITIK & GEOLOKASI GPS
         // ==========================================
         const btnAddMarker = document.getElementById('btn-add-marker');
         const modeStatus = document.getElementById('mode-status');
         
-        let pendingLatLng = null; // Menyimpan sementara koordinat klik peta
+        let pendingLatLng = null;
 
         function resetAddMarkerMode() {
             isAddingMarker = false;
@@ -558,7 +546,6 @@
             } else resetAddMarkerMode();
         });
 
-        // Elemen Modal Kategori
         const surveyModal = document.getElementById('survey-modal');
         const modalCategorySelect = document.getElementById('modal-category-select');
         const subCategoryContainer = document.getElementById('sub-category-container');
@@ -568,7 +555,6 @@
 
         function openSurveyModal() {
             surveyModal.classList.remove('hidden');
-            // Default awal kategori Homepass
             modalCategorySelect.value = 'Homepass';
             subCategoryContainer.classList.add('hidden');
             modalObjectName.value = 'NN';
@@ -580,27 +566,23 @@
             resetAddMarkerMode();
         }
 
-        // Listener perubahan kategori dropdown di modal
         modalCategorySelect.addEventListener('change', (e) => {
             const val = e.target.value;
             if (val === 'Homepass') {
                 subCategoryContainer.classList.add('hidden');
-                modalObjectName.value = 'NN'; // Default Homepass
+                modalObjectName.value = 'NN';
             } else if (val === 'Pole') {
                 subCategoryContainer.classList.remove('hidden');
-                // Ikuti pilihan sub-kategori awal (New)
-                modalObjectName.value = modalPoleSelect.value; 
+                modalObjectName.value = modalPoleSelect.value;
             }
         });
 
-        // Listener perubahan sub-kategori Pole (New / Ext)
         modalPoleSelect.addEventListener('change', (e) => {
             if (modalCategorySelect.value === 'Pole') {
-                modalObjectName.value = e.target.value; // Otomatis ubah nama default jadi "New" atau "Ext"
+                modalObjectName.value = e.target.value;
             }
         });
 
-        // Tangkap klik pada peta
         map.on('click', (e) => {
             if (!isAddingMarker) return;
             const boundaryId = document.getElementById('boundary-select').value;
@@ -610,7 +592,6 @@
             openSurveyModal();
         });
 
-        // Aksi Tombol Simpan pada Modal
         modalSaveBtn.onclick = async () => {
             if (!pendingLatLng) return;
             const boundaryId = document.getElementById('boundary-select').value;
