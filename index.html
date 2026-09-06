@@ -857,8 +857,9 @@
         function setupRealtimeSubscription() {
             if (activeSurveyChannel) {
                 supabaseClient.removeChannel(activeSurveyChannel);
+                activeSurveyChannel = null;
             }
-            activeSurveyChannel = supabaseClient.channel('survey_objects_changes')
+            activeSurveyChannel = supabaseClient.channel('survey_objects_changes_' + Math.random())
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'survey_objects' }, payload => {
                     const currentBoundaryId = document.getElementById('boundary-select').value;
                     const affectedBoundaryId = payload.new?.boundary_id || payload.old?.boundary_id;
@@ -964,11 +965,9 @@
             }
 
             const currentRole = roleSelector ? roleSelector.value : 'surveyor';
-            if (currentRole === 'updater') {
-                if (!isPointInsideBoundary(e.latlng.lat, e.latlng.lng, currentBoundaryGeoJSON)) {
-                    showToast('Titik berada di luar area boundary yang diizinkan!', 'error');
-                    return;
-                }
+            if (!isPointInsideBoundary(e.latlng.lat, e.latlng.lng, currentBoundaryGeoJSON)) {
+                showToast('Titik berada di luar area boundary yang diizinkan!', 'error');
+                return;
             }
 
             pendingLatLng = e.latlng;
@@ -979,7 +978,13 @@
             modalSaveBtn.onclick = async () => {
                 if (!pendingLatLng) return;
                 const boundaryId = document.getElementById('boundary-select').value;
-                const category = modalCategorySelect ? modalCategorySelect.value : 'Homepass';
+                const currentRole = roleSelector ? roleSelector.value : 'surveyor';
+                
+                let category = modalCategorySelect ? modalCategorySelect.value : 'Homepass';
+                if (currentRole === 'updater') {
+                    category = 'Pole'; // Paksa proteksi role updater
+                }
+
                 const poleType = modalPoleSelect ? modalPoleSelect.value : 'New';
                 const rawName = modalObjectName ? modalObjectName.value.trim() || 'Objek Baru' : 'Objek Baru';
 
@@ -1035,6 +1040,11 @@
 
                     const boundaryId = document.getElementById('boundary-select').value;
                     if (!boundaryId) return;
+
+                    if (!isPointInsideBoundary(lat, lng, currentBoundaryGeoJSON)) {
+                        showToast('Lokasi GPS Anda berada di luar area boundary aktif!', 'error');
+                        return;
+                    }
 
                     if (confirm('Simpan koordinat GPS ini sebagai titik survey baru?')) {
                         pendingLatLng = { lat, lng };
