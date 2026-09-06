@@ -1099,7 +1099,7 @@
                     kmlContent += `
     <Placemark>
       <name>${escapeHtml(parsed.cleanTitle)}</name>
-      <description><![CDATA[Kategori: ${escapeHtml(parsed.type)}<br>Surveyor: ${escapeHtml(item.surveyor)}<br>Waktu: ${escapeHtml(item.timestamp)]]></description>
+      <description><![CDATA[Kategori: ${escapeHtml(parsed.type)}<br>Surveyor: ${escapeHtml(item.surveyor)}<br>Waktu: ${escapeHtml(item.timestamp)}]]></description>
       <styleUrl>${styleUrl}</styleUrl>
       <Point><coordinates>${item.lng},${item.lat},0</coordinates></Point>
     </Placemark>`;
