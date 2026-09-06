@@ -192,6 +192,7 @@
         // ==========================================
         function showToast(message, type = 'info') {
             const toast = document.getElementById('toast');
+            if (!toast) return;
             toast.innerText = message;
             toast.className = `fixed top-4 right-4 z-[999999] px-4 py-3 rounded shadow-lg text-xs font-bold text-white transition-all transform duration-300 max-w-sm ${
                 type === 'error' ? 'bg-red-600' : type === 'success' ? 'bg-emerald-600' : 'bg-blue-600'
@@ -271,34 +272,37 @@
 
             updateRoleUI();
             await loadBoundaries();
+            setupRealtimeSubscription();
         }
 
-        loginBtn.addEventListener('click', async () => {
-            const email = loginEmailInput.value.trim();
-            const password = loginPasswordInput.value.trim();
+        if (loginBtn) {
+            loginBtn.addEventListener('click', async () => {
+                const email = loginEmailInput.value.trim();
+                const password = loginPasswordInput.value.trim();
 
-            if (!email || !password) {
-                loginError.innerText = 'Email dan password wajib diisi!';
-                loginError.classList.remove('hidden');
-                return;
-            }
+                if (!email || !password) {
+                    loginError.innerText = 'Email dan password wajib diisi!';
+                    loginError.classList.remove('hidden');
+                    return;
+                }
 
-            loginBtn.innerText = 'Memproses...';
-            loginBtn.disabled = true;
-            loginError.classList.add('hidden');
+                loginBtn.innerText = 'Memproses...';
+                loginBtn.disabled = true;
+                loginError.classList.add('hidden');
 
-            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
-            loginBtn.innerText = 'Masuk Aplikasi';
-            loginBtn.disabled = false;
+                loginBtn.innerText = 'Masuk Aplikasi';
+                loginBtn.disabled = false;
 
-            if (error) {
-                loginError.innerText = 'Login gagal: ' + error.message;
-                loginError.classList.remove('hidden');
-            } else if (data.session) {
-                await handleSuccessfulLogin(data.session.user);
-            }
-        });
+                if (error) {
+                    loginError.innerText = 'Login gagal: ' + error.message;
+                    loginError.classList.remove('hidden');
+                } else if (data.session) {
+                    await handleSuccessfulLogin(data.session.user);
+                }
+            });
+        }
 
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async () => {
@@ -443,8 +447,8 @@
                 if (window.map) window.map.invalidateSize();
             }, 300);
         }
-        sidebarToggle.addEventListener('click', toggleSidebar);
-        sidebarClose.addEventListener('click', toggleSidebar);
+        if (sidebarToggle) sidebarToggle.addEventListener('click', toggleSidebar);
+        if (sidebarClose) sidebarClose.addEventListener('click', toggleSidebar);
 
         const roleSelector = document.getElementById('role-selector');
         const adminSection = document.getElementById('admin-section');
@@ -453,13 +457,14 @@
         const objectListSection = document.getElementById('object-list-section');
 
         function updateRoleUI() {
+            if (!roleSelector) return;
             const role = roleSelector.value;
             if (role === 'admin') {
-                adminSection.style.display = 'block';
+                if (adminSection) adminSection.style.display = 'block';
                 if (exportKmzContainer) exportKmzContainer.style.display = 'grid';
                 if (objectListSection) objectListSection.style.display = 'flex';
             } else {
-                adminSection.style.display = 'none';
+                if (adminSection) adminSection.style.display = 'none';
                 if (exportKmzContainer) exportKmzContainer.style.display = 'none';
                 if (objectListSection) objectListSection.style.display = role === 'surveyor' ? 'flex' : 'none';
             }
@@ -470,6 +475,7 @@
 
         async function checkSupabaseConnection() {
             const syncEl = document.getElementById('sync-status');
+            if (!syncEl) return;
             try {
                 await supabaseClient.from('boundaries').select('id').limit(1);
                 syncEl.className = 'text-[10px] bg-green-500 px-2 py-0.5 rounded-full text-white whitespace-nowrap shadow-sm';
@@ -485,6 +491,7 @@
         // ==========================================
         async function loadBoundaries() {
             const select = document.getElementById('boundary-select');
+            if (!select) return;
             const currentValue = select.value;
             select.innerHTML = '<option value="">-- Memuat Data --</option>';
 
@@ -505,54 +512,56 @@
             }
         }
 
-        document.getElementById('upload-btn').addEventListener('click', async () => {
-            const fileInput = document.getElementById('kmz-file-input');
-            if (fileInput.files.length === 0) return showToast('Pilih file KMZ/KML terlebih dahulu!', 'error');
+        const uploadBtn = document.getElementById('upload-btn');
+        if (uploadBtn) {
+            uploadBtn.addEventListener('click', async () => {
+                const fileInput = document.getElementById('kmz-file-input');
+                if (!fileInput || fileInput.files.length === 0) return showToast('Pilih file KMZ/KML terlebih dahulu!', 'error');
 
-            const file = fileInput.files[0];
-            const btn = document.getElementById('upload-btn');
-            btn.innerText = 'Memproses...'; btn.disabled = true;
+                const file = fileInput.files[0];
+                uploadBtn.innerText = 'Memproses...'; uploadBtn.disabled = true;
 
-            try {
-                let kmlText = '';
-                if (file.name.toLowerCase().endsWith('.kmz')) {
-                    const zip = new JSZip();
-                    const zipContent = await zip.loadAsync(file);
-                    const kmlFilename = Object.keys(zipContent.files).find(fn => fn.toLowerCase().endsWith('.kml'));
-                    if (!kmlFilename) throw new Error('File KML tidak ditemukan di dalam KMZ.');
-                    kmlText = await zipContent.files[kmlFilename].async('text');
-                } else {
-                    kmlText = await file.text();
+                try {
+                    let kmlText = '';
+                    if (file.name.toLowerCase().endsWith('.kmz')) {
+                        const zip = new JSZip();
+                        const zipContent = await zip.loadAsync(file);
+                        const kmlFilename = Object.keys(zipContent.files).find(fn => fn.toLowerCase().endsWith('.kml'));
+                        if (!kmlFilename) throw new Error('File KML tidak ditemukan di dalam KMZ.');
+                        kmlText = await zipContent.files[kmlFilename].async('text');
+                    } else {
+                        kmlText = await file.text();
+                    }
+
+                    const dom = new DOMParser().parseFromString(kmlText, 'text/xml');
+                    if (dom.querySelector('parsererror')) {
+                        throw new Error("Format XML KML/KMZ tidak valid.");
+                    }
+
+                    const tj = window.togeojson || window.toGeoJSON;
+                    if (!tj) throw new Error("Library converter GeoJSON gagal dimuat.");
+
+                    const convertedGeoJSON = typeof tj.kml === 'function' ? tj.kml(dom) : (tj.default && typeof tj.default.kml === 'function' ? tj.default.kml(dom) : null);
+                    if (!convertedGeoJSON?.features?.length) throw new Error('Data KML kosong atau tidak terdeteksi.');
+
+                    const boundaryId = 'b_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+                    const { error: insertError } = await supabaseClient.from('boundaries').insert([{ id: boundaryId, name: file.name, geojson: convertedGeoJSON }]);
+                    if (insertError) throw insertError;
+
+                    showToast('File berhasil diunggah ke Supabase!', 'success');
+                    fileInput.value = '';
+                    await loadBoundaries();
+                    
+                    document.getElementById('boundary-select').value = boundaryId;
+                    loadBoundaryToMap(boundaryId);
+
+                } catch (err) {
+                    showToast('Gagal memproses file: ' + err.message, 'error');
+                } finally {
+                    uploadBtn.innerText = 'Proses & Simpan'; uploadBtn.disabled = false;
                 }
-
-                const dom = new DOMParser().parseFromString(kmlText, 'text/xml');
-                if (dom.querySelector('parsererror')) {
-                    throw new Error("Format XML KML/KMZ tidak valid.");
-                }
-
-                const tj = window.togeojson || window.toGeoJSON;
-                if (!tj) throw new Error("Library converter GeoJSON gagal dimuat.");
-
-                const convertedGeoJSON = typeof tj.kml === 'function' ? tj.kml(dom) : (tj.default && typeof tj.default.kml === 'function' ? tj.default.kml(dom) : null);
-                if (!convertedGeoJSON?.features?.length) throw new Error('Data KML kosong atau tidak terdeteksi.');
-
-                const boundaryId = 'b_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-                const { error: insertError } = await supabaseClient.from('boundaries').insert([{ id: boundaryId, name: file.name, geojson: convertedGeoJSON }]);
-                if (insertError) throw insertError;
-
-                showToast('File berhasil diunggah ke Supabase!', 'success');
-                fileInput.value = '';
-                await loadBoundaries();
-                
-                document.getElementById('boundary-select').value = boundaryId;
-                loadBoundaryToMap(boundaryId);
-
-            } catch (err) {
-                showToast('Gagal memproses file: ' + err.message, 'error');
-            } finally {
-                btn.innerText = 'Proses & Simpan'; btn.disabled = false;
-            }
-        });
+            });
+        }
 
         async function loadBoundaryToMap(boundaryId) {
             currentLayerGroup.clearLayers();
@@ -569,7 +578,7 @@
 
                 if (data?.geojson) {
                     currentBoundaryGeoJSON = data.geojson;
-                    const currentRole = roleSelector.value;
+                    const currentRole = roleSelector ? roleSelector.value : 'surveyor';
                     const layer = L.geoJSON(data.geojson, {
                         style: feature => {
                             const type = feature.geometry?.type || '';
@@ -591,13 +600,16 @@
             }
         }
 
-        document.getElementById('boundary-select').addEventListener('change', (e) => {
-            loadBoundaryToMap(e.target.value);
-            if (window.innerWidth < 768) {
-                sidebar.classList.add('-translate-x-full');
-                setTimeout(() => { if (window.map) window.map.invalidateSize(); }, 300);
-            }
-        });
+        const boundarySelectEl = document.getElementById('boundary-select');
+        if (boundarySelectEl) {
+            boundarySelectEl.addEventListener('change', (e) => {
+                loadBoundaryToMap(e.target.value);
+                if (window.innerWidth < 768) {
+                    sidebar.classList.add('-translate-x-full');
+                    setTimeout(() => { if (window.map) window.map.invalidateSize(); }, 300);
+                }
+            });
+        }
 
         // ==========================================
         // 5. OBJEK SURVEY (FOLDERS & REALTIME)
@@ -606,7 +618,9 @@
             const boundaryId = targetBoundaryId || document.getElementById('boundary-select').value;
             const objectListEl = document.getElementById('object-list');
             const objectCounter = document.getElementById('object-counter');
-            const currentRole = roleSelector.value;
+            if (!objectListEl || !objectCounter) return;
+
+            const currentRole = roleSelector ? roleSelector.value : 'surveyor';
             const currentUserName = currentUserLabel.innerText;
             
             drawnItems.clearLayers();
@@ -708,7 +722,7 @@
         }
 
         function renderSingleObjectInFolder(item, containerEl) {
-            const currentRole = roleSelector.value;
+            const currentRole = roleSelector ? roleSelector.value : 'surveyor';
             const currentUserName = currentUserLabel.innerText;
             const isAdmin = currentRole === 'admin';
             const isOwner = isAdmin || (item.surveyor === currentUserName);
@@ -839,14 +853,20 @@
             }
         };
 
-        supabaseClient.channel('survey_objects_changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'survey_objects' }, payload => {
-                const currentBoundaryId = document.getElementById('boundary-select').value;
-                const affectedBoundaryId = payload.new?.boundary_id || payload.old?.boundary_id;
-                if (affectedBoundaryId && affectedBoundaryId === currentBoundaryId) {
-                    loadObjectsFromDB(currentBoundaryId);
-                }
-            }).subscribe();
+        let activeSurveyChannel = null;
+        function setupRealtimeSubscription() {
+            if (activeSurveyChannel) {
+                supabaseClient.removeChannel(activeSurveyChannel);
+            }
+            activeSurveyChannel = supabaseClient.channel('survey_objects_changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'survey_objects' }, payload => {
+                    const currentBoundaryId = document.getElementById('boundary-select').value;
+                    const affectedBoundaryId = payload.new?.boundary_id || payload.old?.boundary_id;
+                    if (affectedBoundaryId && affectedBoundaryId === currentBoundaryId) {
+                        loadObjectsFromDB(currentBoundaryId);
+                    }
+                }).subscribe();
+        }
 
         // ==========================================
         // 6. SURVEY MODAL & GPS LOGIC
@@ -864,60 +884,75 @@
         const modalSaveBtn = document.getElementById('modal-save-btn');
 
         function updateModalUI() {
+            if (!modalCategorySelect || !modalPoleSelect) return;
             const cat = modalCategorySelect.value;
             const poleType = modalPoleSelect.value;
             
             if (cat === 'Homepass') {
-                subCategoryContainer.classList.add('hidden');
-                jenisPoleContainer.classList.add('hidden');
-                modalObjectName.readOnly = false;
-                modalObjectName.classList.remove('bg-gray-100');
+                if (subCategoryContainer) subCategoryContainer.classList.add('hidden');
+                if (jenisPoleContainer) jenisPoleContainer.classList.add('hidden');
+                if (modalObjectName) {
+                    modalObjectName.readOnly = false;
+                    modalObjectName.classList.remove('bg-gray-100');
+                }
             } else if (cat === 'Pole') {
-                subCategoryContainer.classList.remove('hidden');
+                if (subCategoryContainer) subCategoryContainer.classList.remove('hidden');
                 if (poleType === 'New') {
-                    jenisPoleContainer.classList.remove('hidden');
-                    modalJenisPoleNew.classList.remove('hidden');
-                    modalJenisPoleExt.classList.add('hidden');
-                    modalObjectName.value = modalJenisPoleNew.value;
-                    modalObjectName.readOnly = true;
-                    modalObjectName.classList.add('bg-gray-100');
+                    if (jenisPoleContainer) jenisPoleContainer.classList.remove('hidden');
+                    if (modalJenisPoleNew) modalJenisPoleNew.classList.remove('hidden');
+                    if (modalJenisPoleExt) modalJenisPoleExt.classList.add('hidden');
+                    if (modalObjectName && modalJenisPoleNew) {
+                        modalObjectName.value = modalJenisPoleNew.value;
+                        modalObjectName.readOnly = true;
+                        modalObjectName.classList.add('bg-gray-100');
+                    }
                 } else if (poleType === 'Ext') {
-                    jenisPoleContainer.classList.remove('hidden');
-                    modalJenisPoleNew.classList.add('hidden');
-                    modalJenisPoleExt.classList.remove('hidden');
-                    modalObjectName.value = modalJenisPoleExt.value;
-                    modalObjectName.readOnly = true;
-                    modalObjectName.classList.add('bg-gray-100');
+                    if (jenisPoleContainer) jenisPoleContainer.classList.remove('hidden');
+                    if (modalJenisPoleNew) modalJenisPoleNew.classList.add('hidden');
+                    if (modalJenisPoleExt) modalJenisPoleExt.classList.remove('hidden');
+                    if (modalObjectName && modalJenisPoleExt) {
+                        modalObjectName.value = modalJenisPoleExt.value;
+                        modalObjectName.readOnly = true;
+                        modalObjectName.classList.add('bg-gray-100');
+                    }
                 }
             }
         }
 
-        modalCategorySelect.addEventListener('change', (e) => {
-            if (e.target.value === 'Homepass') modalObjectName.value = 'NN';
-            updateModalUI();
-        });
+        if (modalCategorySelect) {
+            modalCategorySelect.addEventListener('change', (e) => {
+                if (e.target.value === 'Homepass' && modalObjectName) modalObjectName.value = 'NN';
+                updateModalUI();
+            });
+        }
 
-        modalPoleSelect.addEventListener('change', updateModalUI);
-        modalJenisPoleNew.addEventListener('change', (e) => { modalObjectName.value = e.target.value; });
-        modalJenisPoleExt.addEventListener('change', (e) => { modalObjectName.value = e.target.value; });
+        if (modalPoleSelect) modalPoleSelect.addEventListener('change', updateModalUI);
+        if (modalJenisPoleNew) modalJenisPoleNew.addEventListener('change', (e) => { if (modalObjectName) modalObjectName.value = e.target.value; });
+        if (modalJenisPoleExt) modalJenisPoleExt.addEventListener('change', (e) => { if (modalObjectName) modalObjectName.value = e.target.value; });
 
         function openSurveyModal() {
+            if (!surveyModal) return;
             surveyModal.classList.remove('hidden');
-            if (roleSelector.value === 'updater') {
-                modalCategorySelect.value = 'Pole';
-                modalCategorySelect.disabled = true;
-                modalCategorySelect.classList.add('bg-gray-100');
+            const currentRole = roleSelector ? roleSelector.value : 'surveyor';
+            if (currentRole === 'updater') {
+                if (modalCategorySelect) {
+                    modalCategorySelect.value = 'Pole';
+                    modalCategorySelect.disabled = true;
+                    modalCategorySelect.classList.add('bg-gray-100');
+                }
             } else {
-                modalCategorySelect.value = 'Homepass';
-                modalCategorySelect.disabled = false;
-                modalCategorySelect.classList.remove('bg-gray-100');
-                modalObjectName.value = 'NN';
+                if (modalCategorySelect) {
+                    modalCategorySelect.value = 'Homepass';
+                    modalCategorySelect.disabled = false;
+                    modalCategorySelect.classList.remove('bg-gray-100');
+                }
+                if (modalObjectName) modalObjectName.value = 'NN';
             }
             updateModalUI();
         }
 
         window.closeSurveyModal = function() {
-            surveyModal.classList.add('hidden');
+            if (surveyModal) surveyModal.classList.add('hidden');
             pendingLatLng = null;
         }
 
@@ -928,7 +963,8 @@
                 return;
             }
 
-            if (roleSelector.value === 'updater') {
+            const currentRole = roleSelector ? roleSelector.value : 'surveyor';
+            if (currentRole === 'updater') {
                 if (!isPointInsideBoundary(e.latlng.lat, e.latlng.lng, currentBoundaryGeoJSON)) {
                     showToast('Titik berada di luar area boundary yang diizinkan!', 'error');
                     return;
@@ -939,76 +975,80 @@
             openSurveyModal();
         });
 
-        modalSaveBtn.onclick = async () => {
-            if (!pendingLatLng) return;
-            const boundaryId = document.getElementById('boundary-select').value;
-            const category = modalCategorySelect.value;
-            const poleType = modalPoleSelect.value;
-            const rawName = modalObjectName.value.trim() || 'Objek Baru';
+        if (modalSaveBtn) {
+            modalSaveBtn.onclick = async () => {
+                if (!pendingLatLng) return;
+                const boundaryId = document.getElementById('boundary-select').value;
+                const category = modalCategorySelect ? modalCategorySelect.value : 'Homepass';
+                const poleType = modalPoleSelect ? modalPoleSelect.value : 'New';
+                const rawName = modalObjectName ? modalObjectName.value.trim() || 'Objek Baru' : 'Objek Baru';
 
-            let storedTitle = '[Homepass] ' + rawName;
-            if (category === 'Pole') {
-                if (poleType === 'New') storedTitle = '[PoleNew] ' + rawName;
-                else if (poleType === 'Ext') storedTitle = '[PoleExt] ' + rawName;
-            }
+                let storedTitle = '[Homepass] ' + rawName;
+                if (category === 'Pole') {
+                    if (poleType === 'New') storedTitle = '[PoleNew] ' + rawName;
+                    else if (poleType === 'Ext') storedTitle = '[PoleExt] ' + rawName;
+                }
 
-            const newObj = {
-                id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                boundary_id: boundaryId,
-                lat: pendingLatLng.lat, 
-                lng: pendingLatLng.lng,
-                title: storedTitle,
-                surveyor: currentUserLabel.innerText,
-                timestamp: new Date().toLocaleTimeString('id-ID')
+                const newObj = {
+                    id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                    boundary_id: boundaryId,
+                    lat: pendingLatLng.lat, 
+                    lng: pendingLatLng.lng,
+                    title: storedTitle,
+                    surveyor: currentUserLabel ? currentUserLabel.innerText : 'Unknown',
+                    timestamp: new Date().toLocaleTimeString('id-ID')
+                };
+
+                const { error } = await supabaseClient.from('survey_objects').insert([newObj]);
+                if (error) {
+                    showToast('Gagal menyimpan titik: ' + error.message, 'error');
+                } else {
+                    showToast('Titik berhasil ditambahkan!', 'success');
+                    closeSurveyModal();
+                    loadObjectsFromDB(boundaryId);
+                }
             };
-
-            const { error } = await supabaseClient.from('survey_objects').insert([newObj]);
-            if (error) {
-                showToast('Gagal menyimpan titik: ' + error.message, 'error');
-            } else {
-                showToast('Titik berhasil ditambahkan!', 'success');
-                closeSurveyModal();
-                loadObjectsFromDB(boundaryId);
-            }
-        };
+        }
 
         const btnMyLocation = document.getElementById('btn-my-location');
-        btnMyLocation.addEventListener('click', () => {
-            if (!navigator.geolocation) return showToast('Browser tidak mendukung akses GPS.', 'error');
-            
-            btnMyLocation.classList.add('animate-pulse', 'bg-blue-100');
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                btnMyLocation.classList.remove('animate-pulse', 'bg-blue-100');
-                const lat = position.coords.latitude, lng = position.coords.longitude;
-                map.setView([lat, lng], 18);
+        if (btnMyLocation) {
+            btnMyLocation.addEventListener('click', () => {
+                if (!navigator.geolocation) return showToast('Browser tidak mendukung akses GPS.', 'error');
+                
+                btnMyLocation.classList.add('animate-pulse', 'bg-blue-100');
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    btnMyLocation.classList.remove('animate-pulse', 'bg-blue-100');
+                    const lat = position.coords.latitude, lng = position.coords.longitude;
+                    map.setView([lat, lng], 18);
 
-                if (userLocationMarker) userLocationMarker.setLatLng([lat, lng]);
-                else {
-                    userLocationMarker = L.marker([lat, lng], {
-                        icon: L.divIcon({
-                            className: 'custom-user-location',
-                            html: '<div style="background-color: #3b82f6; width: 18px; height: 18px; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 12px rgba(0,0,0,0.6);"></div>',
-                            iconSize: [18, 18], iconAnchor: [9, 9]
-                        })
-                    }).addTo(map).bindPopup("<b>📍 Posisi Anda</b>");
-                }
-                userLocationMarker.openPopup();
+                    if (userLocationMarker) userLocationMarker.setLatLng([lat, lng]);
+                    else {
+                        userLocationMarker = L.marker([lat, lng], {
+                            icon: L.divIcon({
+                                className: 'custom-user-location',
+                                html: '<div style="background-color: #3b82f6; width: 18px; height: 18px; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 12px rgba(0,0,0,0.6);"></div>',
+                                iconSize: [18, 18], iconAnchor: [9, 9]
+                            })
+                        }).addTo(map).bindPopup("<b>📍 Posisi Anda</b>");
+                    }
+                    userLocationMarker.openPopup();
 
-                const boundaryId = document.getElementById('boundary-select').value;
-                if (!boundaryId) return;
+                    const boundaryId = document.getElementById('boundary-select').value;
+                    if (!boundaryId) return;
 
-                if (confirm('Simpan koordinat GPS ini sebagai titik survey baru?')) {
-                    pendingLatLng = { lat, lng };
-                    openSurveyModal();
-                }
-            }, (err) => {
-                btnMyLocation.classList.remove('animate-pulse', 'bg-blue-100');
-                showToast('Gagal melacak lokasi GPS: ' + err.message, 'error');
-            }, { enableHighAccuracy: true, timeout: 10000 });
-        });
+                    if (confirm('Simpan koordinat GPS ini sebagai titik survey baru?')) {
+                        pendingLatLng = { lat, lng };
+                        openSurveyModal();
+                    }
+                }, (err) => {
+                    btnMyLocation.classList.remove('animate-pulse', 'bg-blue-100');
+                    showToast('Gagal melacak lokasi GPS: ' + err.message, 'error');
+                }, { enableHighAccuracy: true, timeout: 10000 });
+            });
+        }
 
         // ==========================================
-        // 7. EXPORT KMZ LOGIC (DISEMPURNAKAN)
+        // 7. EXPORT KMZ LOGIC
         // ==========================================
         function geometryToKml(geom) {
             if (!geom || !geom.type || !geom.coordinates) return '';
@@ -1049,22 +1089,24 @@
             return '';
         }
 
-        document.getElementById('btn-export-kmz').addEventListener('click', async () => {
-            const boundaryId = document.getElementById('boundary-select').value;
-            if (!boundaryId) return showToast('Pilih area boundary terlebih dahulu!', 'error');
+        const btnExportKmz = document.getElementById('btn-export-kmz');
+        if (btnExportKmz) {
+            btnExportKmz.addEventListener('click', async () => {
+                const boundaryId = document.getElementById('boundary-select').value;
+                if (!boundaryId) return showToast('Pilih area boundary terlebih dahulu!', 'error');
 
-            showToast('Menyiapkan file KMZ...', 'info');
+                showToast('Menyiapkan file KMZ...', 'info');
 
-            try {
-                const [boundRes, objRes] = await Promise.all([
-                    supabaseClient.from('boundaries').select('*').eq('id', boundaryId).single(),
-                    supabaseClient.from('survey_objects').select('*').eq('boundary_id', boundaryId)
-                ]);
+                try {
+                    const [boundRes, objRes] = await Promise.all([
+                        supabaseClient.from('boundaries').select('*').eq('id', boundaryId).single(),
+                        supabaseClient.from('survey_objects').select('*').eq('boundary_id', boundaryId)
+                    ]);
 
-                const boundaryData = boundRes.data;
-                const allData = objRes.data || [];
+                    const boundaryData = boundRes.data;
+                    const allData = objRes.data || [];
 
-                let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+                    let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>Hasil Survey - ${boundaryData ? escapeHtml(boundaryData.name) : 'Export'}</name>
@@ -1095,97 +1137,98 @@
     <Folder>
       <name>Area Boundary</name>`;
 
-                if (boundaryData?.geojson?.features) {
-                    boundaryData.geojson.features.forEach(f => {
-                        const geomXml = geometryToKml(f.geometry);
-                        if (geomXml) {
-                            kmlContent += `
+                    if (boundaryData?.geojson?.features) {
+                        boundaryData.geojson.features.forEach(f => {
+                            const geomXml = geometryToKml(f.geometry);
+                            if (geomXml) {
+                                kmlContent += `
       <Placemark>
         <name>${escapeHtml(f.properties?.name || 'Boundary Geometry')}</name>
         <styleUrl>#boundaryStyle</styleUrl>
         ${geomXml}
       </Placemark>`;
-                        }
-                    });
-                }
+                            }
+                        });
+                    }
 
-                kmlContent += `
+                    kmlContent += `
     </Folder>`;
 
-                const homepassObjects = allData.filter(item => getObjectTypeAndCleanName(item.title).type === 'Homepass');
-                const poleObjects = allData.filter(item => getObjectTypeAndCleanName(item.title).type.startsWith('Pole'));
+                    const homepassObjects = allData.filter(item => getObjectTypeAndCleanName(item.title).type === 'Homepass');
+                    const poleObjects = allData.filter(item => getObjectTypeAndCleanName(item.title).type.startsWith('Pole'));
 
-                kmlContent += `
+                    kmlContent += `
     <Folder>
       <name>Homepass (${homepassObjects.length})</name>`;
 
-                homepassObjects.forEach(item => {
-                    const parsed = getObjectTypeAndCleanName(item.title);
-                    kmlContent += `
+                    homepassObjects.forEach(item => {
+                        const parsed = getObjectTypeAndCleanName(item.title);
+                        kmlContent += `
       <Placemark>
         <name>${escapeHtml(parsed.cleanTitle)}</name>
         <description><![CDATA[<b>Kategori:</b> Homepass<br><b>Surveyor:</b> ${escapeHtml(item.surveyor)}<br><b>Waktu:</b> ${escapeHtml(item.timestamp)}]]></description>
         <styleUrl>#iconHomepass</styleUrl>
         <Point><coordinates>${item.lng},${item.lat},0</coordinates></Point>
       </Placemark>`;
-                });
+                    });
 
-                kmlContent += `
+                    kmlContent += `
     </Folder>`;
 
-                kmlContent += `
+                    kmlContent += `
     <Folder>
       <name>Pole (${poleObjects.length})</name>`;
 
-                poleObjects.forEach(item => {
-                    const parsed = getObjectTypeAndCleanName(item.title);
-                    let styleUrl = '#iconPoleNewT9_4';
-                    const t = parsed.cleanTitle;
-                    if (parsed.type === 'PoleExt') {
-                        styleUrl = '#iconPoleExt';
-                    } else if (t.includes('T7-2,5')) {
-                        styleUrl = '#iconPoleNewT7_25';
-                    } else if (t.includes('T7-3')) {
-                        styleUrl = '#iconPoleNewT7_3';
-                    } else if (t.includes('T7-4')) {
-                        styleUrl = '#iconPoleNewT7_4';
-                    } else if (t.includes('T9-4')) {
-                        styleUrl = '#iconPoleNewT9_4';
-                    }
+                    poleObjects.forEach(item => {
+                        const parsed = getObjectTypeAndCleanName(item.title);
+                        let styleUrl = '#iconPoleNewT9_4';
+                        const t = parsed.cleanTitle;
+                        if (parsed.type === 'PoleExt') {
+                            styleUrl = '#iconPoleExt';
+                        } else if (t.includes('T7-2,5')) {
+                            styleUrl = '#iconPoleNewT7_25';
+                        } else if (t.includes('T7-3')) {
+                            styleUrl = '#iconPoleNewT7_3';
+                        } else if (t.includes('T7-4')) {
+                            styleUrl = '#iconPoleNewT7_4';
+                        } else if (t.includes('T9-4')) {
+                            styleUrl = '#iconPoleNewT9_4';
+                        }
 
-                    kmlContent += `
+                        kmlContent += `
       <Placemark>
         <name>${escapeHtml(parsed.cleanTitle)}</name>
         <description><![CDATA[<b>Kategori:</b> ${escapeHtml(parsed.type)}<br><b>Surveyor:</b> ${escapeHtml(item.surveyor)}<br><b>Waktu:</b> ${escapeHtml(item.timestamp)}]]></description>
         <styleUrl>${styleUrl}</styleUrl>
         <Point><coordinates>${item.lng},${item.lat},0</coordinates></Point>
       </Placemark>`;
-                });
+                    });
 
-                kmlContent += `
+                    kmlContent += `
     </Folder>
   </Document>
 </kml>`;
 
-                const zip = new JSZip();
-                zip.file("doc.kml", kmlContent);
-                const content = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+                    const zip = new JSZip();
+                    zip.file("doc.kml", kmlContent);
+                    const content = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
 
-                const url = URL.createObjectURL(content);
-                const a = document.createElement('a');
-                a.href = url;
-                const safeName = boundaryData?.name ? boundaryData.name.replace(/\.[^/.]+$/, "").replace(/\W+/g, '_') : 'survey_data';
-                a.download = `${safeName}.kmz`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                showToast('File KMZ berhasil diekspor!', 'success');
-            } catch (err) {
-                console.error(err);
-                showToast('Gagal mengekspor KMZ: ' + err.message, 'error');
-            }
-        });
+                    const url = URL.createObjectURL(content);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const safeName = boundaryData?.name ? boundaryData.name.replace(/\.[^/.]+$/, "").replace(/\W+/g, '_') : 'survey_data';
+                    a.download = `${safeName}.kmz`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showToast('File KMZ berhasil diekspor!', 'success');
+                } catch (err) {
+                    console.error(err);
+                    showToast('Gagal mengekspor KMZ: ' + err.message, 'error');
+                }
+            });
+        }
 
         // ==========================================
         // INISIASI APLIKASI
@@ -1197,7 +1240,11 @@
             if (event === 'SIGNED_IN' && session?.user) {
                 handleSuccessfulLogin(session.user);
             } else if (event === 'SIGNED_OUT') {
-                loginModal.classList.remove('hidden');
+                if (activeSurveyChannel) {
+                    supabaseClient.removeChannel(activeSurveyChannel);
+                    activeSurveyChannel = null;
+                }
+                if (loginModal) loginModal.classList.remove('hidden');
                 document.getElementById('app-header').classList.add('hidden');
                 document.getElementById('app-main').classList.add('hidden');
             }
