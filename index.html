@@ -361,6 +361,7 @@
         });
 
         // --- Render Objek Survey dari Supabase ---
+       // --- Render Objek Survey dari Supabase ---
         async function renderObjects() {
             drawnItems.clearLayers();
             const boundaryId = document.getElementById('boundary-select').value;
@@ -386,14 +387,37 @@
                     return;
                 }
 
+                // 1. Definisikan Ikon Kustom Baru
+                const customSurveyIcon = L.icon({
+                    iconUrl: 'http://maps.google.com/mapfiles/kml/paddle/blu-blank.png',
+                    iconSize: [32, 32], // Ukuran ikon
+                    iconAnchor: [16, 32], // Titik tengah bawah agar presisi di koordinat
+                    popupAnchor: [0, -32] // Posisi popup tepat di atas ikon
+                });
+
                 objects.forEach(item => {
-                    const marker = L.circleMarker([item.lat, item.lng], {
-                        radius: 5,
-                        fillColor: "#10b981",
-                        color: "#ffffff",
-                        weight: 2,
-                        opacity: 1,
-                        fillOpacity: 0.9
+                    // 2. Gunakan L.marker dengan ikon kustom dan opsi draggable
+                    const marker = L.marker([item.lat, item.lng], {
+                        icon: customSurveyIcon,
+                        draggable: true // Memungkinkan marker digeser (klik+tahan+geser di HP)
+                    });
+
+                    // 3. Tambahkan Event Listener saat selesai digeser (dragend)
+                    marker.on('dragend', async function(e) {
+                        const newPos = e.target.getLatLng(); // Dapatkan koordinat baru
+                        
+                        // Update koordinat ke Supabase
+                        const { error: updateError } = await supabaseClient
+                            .from('survey_objects')
+                            .update({ lat: newPos.lat, lng: newPos.lng })
+                            .eq('id', item.id);
+                        
+                        if (updateError) {
+                            alert('Gagal mengupdate posisi objek: ' + updateError.message);
+                            renderObjects(); // Render ulang untuk mengembalikan posisi jika gagal
+                        } else {
+                            console.log(`Posisi ${item.title} berhasil diperbarui.`);
+                        }
                     });
 
                     const popupContent = document.createElement('div');
