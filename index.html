@@ -68,7 +68,12 @@
             </div>
 
             <div class="p-4 border-b shrink-0">
-                <h3 class="font-semibold text-sm text-gray-700 mb-2">📂 Pilih Area / Boundary</h3>
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-semibold text-sm text-gray-700">📂 Pilih Area / Boundary</h3>
+                    <button id="btn-delete-boundary" class="hidden text-[11px] bg-red-100 hover:bg-red-200 text-red-600 font-bold px-2 py-0.5 rounded transition flex items-center space-x-1" title="Hapus Area & Objek Terkait">
+                        <span>❌ Hapus Area Ini</span>
+                    </button>
+                </div>
                 <select id="boundary-select" class="w-full text-sm border-gray-300 rounded p-2 focus:ring focus:ring-blue-200 focus:border-blue-500 shadow-sm border bg-white">
                     <option value="">-- Memuat Area --</option>
                 </select>
@@ -204,11 +209,11 @@
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+                .replace(/&/g, "&")
+                .replace(/</g, "<")
+                .replace(/>/g, ">")
+                .replace(/"/g, """)
+                .replace(/'/g, "'");
         }
 
         // ==========================================
@@ -455,11 +460,14 @@
         const currentUserLabel = document.getElementById('current-user-label');
         const exportKmzContainer = document.getElementById('export-kmz-container');
         const objectListSection = document.getElementById('object-list-section');
+        const btnDeleteBoundary = document.getElementById('btn-delete-boundary');
 
         function updateRoleUI() {
             if (!roleSelector) return;
             const role = roleSelector.value;
-            if (role === 'admin') {
+            const isAdm = role === 'admin';
+
+            if (isAdm) {
                 if (adminSection) adminSection.style.display = 'block';
                 if (exportKmzContainer) exportKmzContainer.style.display = 'grid';
                 if (objectListSection) objectListSection.style.display = 'flex';
@@ -468,9 +476,24 @@
                 if (exportKmzContainer) exportKmzContainer.style.display = 'none';
                 if (objectListSection) objectListSection.style.display = role === 'surveyor' ? 'flex' : 'none';
             }
+
+            // Tampilkan atau sembunyikan tombol hapus area berdasarkan role admin & ketersediaan area terpilih
+            updateBoundaryDeleteButtonVisibility();
+
             const boundaryId = document.getElementById('boundary-select').value;
             if (boundaryId) loadBoundaryToMap(boundaryId);
             else loadObjectsFromDB(boundaryId);
+        }
+
+        function updateBoundaryDeleteButtonVisibility() {
+            if (!btnDeleteBoundary) return;
+            const role = roleSelector ? roleSelector.value : 'surveyor';
+            const boundaryId = document.getElementById('boundary-select').value;
+            if (role === 'admin' && boundaryId) {
+                btnDeleteBoundary.classList.remove('hidden');
+            } else {
+                btnDeleteBoundary.classList.add('hidden');
+            }
         }
 
         async function checkSupabaseConnection() {
@@ -507,6 +530,7 @@
                     select.appendChild(opt);
                 });
                 if (currentValue) select.value = currentValue;
+                updateBoundaryDeleteButtonVisibility();
             } catch (err) {
                 select.innerHTML = '<option value="">Gagal memuat area</option>';
             }
@@ -563,9 +587,60 @@
             });
         }
 
+        // Fitur baru: Hapus Boundary dan objek survey terkait secara otomatis
+        if (btnDeleteBoundary) {
+            btnDeleteBoundary.addEventListener('click', async () => {
+                const boundaryId = document.getElementById('boundary-select').value;
+                if (!boundaryId) return;
+
+                const selectedOptionText = document.getElementById('boundary-select').selectedOptions[0]?.textContent || 'Area ini';
+
+                if (confirm(`Apakah Anda yakin ingin menghapus "${selectedOptionText}"?\nSemua titik objek survey yang ada di dalam area ini juga akan terhapus permanen!`)) {
+                    btnDeleteBoundary.innerText = 'Menghapus...';
+                    btnDeleteBoundary.disabled = true;
+
+                    try {
+                        // 1. Hapus semua survey objects yang berelasi dengan boundary_id ini
+                        const { error: deleteObjError } = await supabaseClient
+                            .from('survey_objects')
+                            .delete()
+                            .eq('boundary_id', boundaryId);
+
+                        if (deleteObjError) throw deleteObjError;
+
+                        // 2. Hapus boundary itu sendiri
+                        const { error: deleteBoundError } = await supabaseClient
+                            .from('boundaries')
+                            .delete()
+                            .eq('id', boundaryId);
+
+                        if (deleteBoundError) throw deleteBoundError;
+
+                        showToast('Area dan seluruh objek survey terkait berhasil dihapus!', 'success');
+                        
+                        // Reset peta & dropdown
+                        document.getElementById('boundary-select').value = '';
+                        currentLayerGroup.clearLayers();
+                        currentBoundaryGeoJSON = null;
+                        
+                        await loadBoundaries();
+                        loadObjectsFromDB('');
+                    } catch (err) {
+                        showToast('Gagal menghapus area: ' + err.message, 'error');
+                    } finally {
+                        btnDeleteBoundary.innerHTML = '<span>❌ Hapus Area Ini</span>';
+                        btnDeleteBoundary.disabled = false;
+                        updateBoundaryDeleteButtonVisibility();
+                    }
+                }
+            });
+        }
+
         async function loadBoundaryToMap(boundaryId) {
             currentLayerGroup.clearLayers();
             currentBoundaryGeoJSON = null;
+
+            updateBoundaryDeleteButtonVisibility();
 
             if (!boundaryId) {
                 loadObjectsFromDB(boundaryId);
@@ -604,6 +679,7 @@
         if (boundarySelectEl) {
             boundarySelectEl.addEventListener('change', (e) => {
                 loadBoundaryToMap(e.target.value);
+                updateBoundaryDeleteButtonVisibility();
                 if (window.innerWidth < 768) {
                     sidebar.classList.add('-translate-x-full');
                     setTimeout(() => { if (window.map) window.map.invalidateSize(); }, 300);
