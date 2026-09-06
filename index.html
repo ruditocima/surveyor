@@ -154,21 +154,19 @@
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 21, maxNativeZoom: 19, attribution: '© OpenStreetMap' });
         const earthLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 21, maxNativeZoom: 20, subdomains: ['0', '1', '2', '3'], attribution: '© Google Satellite' });
 
-        // Inisialisasi peta dengan tambahan parameter rotasi (rotate, touchRotate, rotateControl)
         const map = L.map('map', { 
             center: [-2.548926, 118.014863], 
             zoom: 5, 
             layers: [earthLayer], 
             zoomControl: false, 
             maxZoom: 21,
-            rotate: true,              // Mengaktifkan fitur rotasi peta
-            touchRotate: true,         // Mendukung rotasi dengan dua jari di HP/Touchscreen
+            rotate: true,
+            touchRotate: true,
             rotateControl: {
-                position: 'topleft',   // Posisi kontrol rotasi di pojok kiri atas (di bawah zoom)
+                position: 'topleft',
                 closeOnZeroBearing: false
             }
         });
-        
         L.control.zoom({ position: 'topleft' }).addTo(map);
 
         const baseMaps = { "🌍 Tampilan Earth (Satelit)": earthLayer, "🗺️ Peta Jalan (Standard)": osmLayer };
@@ -226,11 +224,11 @@
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
-                .replace(/&/g, '&')
-                .replace(/</g, '<')
-                .replace(/>/g, '>')
-                .replace(/"/g, '"')
-                .replace(/'/g, ''');
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         // ==========================================
