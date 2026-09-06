@@ -258,11 +258,11 @@
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             const map = {
-                '&': '&',
-                '<': '<',
-                '>': '>',
-                '"': '"',
-                "'": '''
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
             };
             return String(unsafe).replace(/[&<>"']/g, m => map[m]);
         }
@@ -990,7 +990,7 @@
 
                 kmlContent += `</Document></kml>`;
 
-                The Zip = new JSZip();
+                const zip = new JSZip();
                 zip.file("doc.kml", kmlContent);
                 const content = await zip.generateAsync({ type: "blob" });
 
