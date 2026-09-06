@@ -361,7 +361,6 @@
         });
 
         // --- Render Objek Survey dari Supabase ---
-       // --- Render Objek Survey dari Supabase ---
         async function renderObjects() {
             drawnItems.clearLayers();
             const boundaryId = document.getElementById('boundary-select').value;
@@ -718,6 +717,7 @@
     <Placemark>
       <name>${escapeHtml(name)}</name>
       ${desc ? `<description>${escapeHtml(desc)}</description>` : ''}
+      <styleUrl>#boundaryStyle</styleUrl>
       ${geomXml}
     </Placemark>`;
         }
@@ -747,7 +747,25 @@
                 let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>Hasil Survey GIS - ${boundaryData ? escapeHtml(boundaryData.name) : 'Export'}</name>`;
+    <name>Hasil Survey GIS - ${boundaryData ? escapeHtml(boundaryData.name) : 'Export'}</name>
+    <Style id="surveyIcon">
+      <IconStyle>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/paddle/blu-blank.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Style id="boundaryStyle">
+      <PolyStyle>
+        <color>4Df6823b</color> <!-- 4D = 30% opacity, F6823B = Warna Biru (ABGR) -->
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+      <LineStyle>
+        <color>fff6823b</color> <!-- Garis biru solid -->
+        <width>2</width>
+      </LineStyle>
+    </Style>`;
 
                 if (boundaryData && boundaryData.geojson) {
                     const geojson = boundaryData.geojson;
@@ -768,6 +786,7 @@
     <Placemark>
       <name>${escapeHtml(item.title)}</name>
       <description>Surveyor: ${escapeHtml(item.surveyor)}, Waktu: ${escapeHtml(item.timestamp)}</description>
+      <styleUrl>#surveyIcon</styleUrl>
       <Point>
         <coordinates>${item.lng},${item.lat},0</coordinates>
       </Point>
