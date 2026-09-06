@@ -75,13 +75,12 @@
             </div>
 
             <div class="p-4 border-b">
-                <h3 class="font-semibold text-sm text-gray-700 mb-2">📍 Tambah Objek Survey</h3>
-                <div class="grid grid-cols-2 gap-2">
-                    <button id="btn-add-marker" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 px-2 rounded font-medium shadow-sm transition">+ Titik Manual</button>
+                <h3 class="font-semibold text-sm text-gray-700 mb-2">📍 Opsi Survey</h3>
+                <div class="grid grid-cols-1 gap-2">
                     <button id="btn-export-kmz" class="bg-amber-500 hover:bg-amber-600 text-white text-xs py-2 px-2 rounded font-medium shadow-sm transition">📥 Export KMZ</button>
                 </div>
-                <div id="mode-status" class="mt-2 text-[11px] font-semibold text-emerald-600 bg-emerald-50 p-2 rounded hidden">
-                    ⚡ Mode Tambah Titik Aktif: Klik di area peta untuk menyimpan titik.
+                <div id="mode-status" class="mt-2 text-[11px] font-semibold text-emerald-600 bg-emerald-50 p-2 rounded">
+                    ⚡ Sentuh/klik langsung di area peta untuk menambah objek survey.
                 </div>
             </div>
 
@@ -163,7 +162,6 @@
         let currentLayerGroup = L.layerGroup().addTo(map);
         let drawnItems = L.layerGroup().addTo(map);
         
-        let isAddingMarker = false;
         let userLocationMarker = null;
 
         const surveyMarkers = new Map();
@@ -210,7 +208,6 @@
             return { type: 'Homepass', cleanTitle: title };
         }
 
-        // [PERBAIKAN UTAMA] Fungsi escapeHtml yang aman dan benar mencegah XSS
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
@@ -244,7 +241,6 @@
             } else {
                 adminSection.style.display = 'none';
                 currentUserLabel.innerText = 'Surveyor Lapangan';
-                resetAddMarkerMode();
             }
             loadObjectsFromDB(); 
         }
@@ -564,32 +560,9 @@
             }).subscribe();
 
         // ==========================================
-        // 5. TAMBAH TITIK & GEOLOKASI GPS
+        // 5. TAMBAH TITIK OTOMATIS & GEOLOKASI GPS
         // ==========================================
-        const btnAddMarker = document.getElementById('btn-add-marker');
-        const modeStatus = document.getElementById('mode-status');
-        
         let pendingLatLng = null;
-
-        function resetAddMarkerMode() {
-            isAddingMarker = false;
-            btnAddMarker.classList.replace('bg-emerald-800', 'bg-emerald-600');
-            btnAddMarker.innerText = '+ Titik Manual';
-            modeStatus.classList.add('hidden');
-            map.getContainer().classList.remove('crosshair-cursor-enabled');
-        }
-
-        btnAddMarker.addEventListener('click', () => {
-            if (!document.getElementById('boundary-select').value) return alert('Pilih area boundary terlebih dahulu!');
-            isAddingMarker = !isAddingMarker;
-            if (isAddingMarker) {
-                btnAddMarker.classList.replace('bg-emerald-600', 'bg-emerald-800');
-                btnAddMarker.innerText = 'Batal Tambah';
-                modeStatus.classList.remove('hidden');
-                map.getContainer().classList.add('crosshair-cursor-enabled');
-                if (window.innerWidth < 768) sidebar.classList.add('-translate-x-full');
-            } else resetAddMarkerMode();
-        });
 
         const surveyModal = document.getElementById('survey-modal');
         const modalCategorySelect = document.getElementById('modal-category-select');
@@ -608,7 +581,6 @@
         window.closeSurveyModal = function() {
             surveyModal.classList.add('hidden');
             pendingLatLng = null;
-            resetAddMarkerMode();
         }
 
         modalCategorySelect.addEventListener('change', (e) => {
@@ -628,10 +600,13 @@
             }
         });
 
+        // Otomatis tangkap klik peta kapan saja (tanpa tombol aktifasi manual)
         map.on('click', (e) => {
-            if (!isAddingMarker) return;
             const boundaryId = document.getElementById('boundary-select').value;
-            if (!boundaryId) return resetAddMarkerMode();
+            if (!boundaryId) {
+                alert('Pilih area boundary terlebih dahulu di panel kontrol!');
+                return;
+            }
 
             pendingLatLng = e.latlng;
             openSurveyModal();
