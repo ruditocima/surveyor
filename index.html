@@ -201,6 +201,7 @@
 
         const surveyMarkers = new Map();
         const surveyListItems = new Map();
+        let folderOpenState = { Homepass: false, Pole: false };
 
         function getCustomIcon(parsed) {
             if (parsed.type === 'Homepass') {
@@ -255,7 +256,6 @@
             return { type: 'Homepass', cleanTitle: title };
         }
 
-        // Perbaikan Syntax Error: Menggunakan mapping objek aman tanpa karakter terurai
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             const map = {
@@ -448,7 +448,6 @@
                             if (type.includes('LineString')) return { color: "#ef4444", weight: 3, opacity: 0.85 };
                         },
                         pointToLayer: (feature, latlng) => {
-                            // Sesuai Request 1: Untuk Updater, titik/garis asli dari file boundary dihidden agar hanya menampilkan boundary-nya saja
                             if (currentRole === 'updater') return null; 
                             return L.circleMarker(latlng, { radius: 5, fillColor: "#3b82f6", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.9 })
                                 .bindPopup(`<div class="text-xs text-center"><b class="text-blue-600">${escapeHtml(feature.properties?.name || 'Titik KML')}</b></div>`);
@@ -469,7 +468,7 @@
         });
 
         // ==========================================
-        // 4. LOGIKA OBJEK SURVEY (GRANULAR REALTIME)
+        // 4. LOGIKA OBJEK SURVEY (FOLDERS & REALTIME)
         // ==========================================
         async function loadObjectsFromDB() {
             const boundaryId = document.getElementById('boundary-select').value;
@@ -498,7 +497,6 @@
                 objectListEl.innerHTML = '';
 
                 let filteredObjects = objects || [];
-                // Sesuai Request 1: Updater tidak menampilkan titik lain (hanya miliknya sendiri)
                 if (currentRole === 'updater') {
                     filteredObjects = filteredObjects.filter(item => item.surveyor === currentUserName);
                 }
@@ -508,22 +506,86 @@
                     return;
                 }
 
-                filteredObjects.forEach(renderSingleObject);
+                const homepassItems = [];
+                const poleItems = [];
+
+                filteredObjects.forEach(item => {
+                    const parsed = getObjectTypeAndCleanName(item.title);
+                    if (parsed.type === 'Homepass') {
+                        homepassItems.push(item);
+                    } else {
+                        poleItems.push(item);
+                    }
+                });
+
+                objectListEl.innerHTML = `
+                    <div class="space-y-2">
+                        <!-- Folder Homepass -->
+                        <div class="border rounded bg-white shadow-sm overflow-hidden">
+                            <div class="folder-header flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 cursor-pointer select-none" data-folder="Homepass">
+                                <div class="flex items-center space-x-2">
+                                    <span id="icon-homepass" class="text-sm">${folderOpenState.Homepass ? '📂' : '📁'}</span>
+                                    <span class="font-bold text-gray-700">Homepass</span>
+                                </div>
+                                <span class="bg-blue-100 text-blue-800 text-[11px] font-semibold px-2 py-0.5 rounded-full">${homepassItems.length}</span>
+                            </div>
+                            <div id="folder-content-homepass" class="p-2 space-y-2 border-t bg-gray-50/50 ${folderOpenState.Homepass ? '' : 'hidden'}">
+                                ${homepassItems.length === 0 ? '<span class="text-gray-400 italic text-[11px] block p-1">Tidak ada data Homepass.</span>' : ''}
+                            </div>
+                        </div>
+
+                        <!-- Folder Pole -->
+                        <div class="border rounded bg-white shadow-sm overflow-hidden">
+                            <div class="folder-header flex justify-between items-center p-2.5 bg-gray-50 hover:bg-gray-100 cursor-pointer select-none" data-folder="Pole">
+                                <div class="flex items-center space-x-2">
+                                    <span id="icon-pole" class="text-sm">${folderOpenState.Pole ? '📂' : '📁'}</span>
+                                    <span class="font-bold text-gray-700">Pole</span>
+                                </div>
+                                <span class="bg-red-100 text-red-800 text-[11px] font-semibold px-2 py-0.5 rounded-full">${poleItems.length}</span>
+                            </div>
+                            <div id="folder-content-pole" class="p-2 space-y-2 border-t bg-gray-50/50 ${folderOpenState.Pole ? '' : 'hidden'}">
+                                ${poleItems.length === 0 ? '<span class="text-gray-400 italic text-[11px] block p-1">Tidak ada data Pole.</span>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                objectListEl.querySelectorAll('.folder-header').forEach(header => {
+                    header.addEventListener('click', () => {
+                        const folderName = header.getAttribute('data-folder');
+                        folderOpenState[folderName] = !folderOpenState[folderName];
+                        const contentEl = document.getElementById(`folder-content-${folderName.toLowerCase()}`);
+                        const iconEl = document.getElementById(`icon-${folderName.toLowerCase()}`);
+                        if (folderOpenState[folderName]) {
+                            contentEl.classList.remove('hidden');
+                            iconEl.innerText = '📂';
+                        } else {
+                            contentEl.classList.add('hidden');
+                            iconEl.innerText = '📁';
+                        }
+                    });
+                });
+
+                filteredObjects.forEach(item => {
+                    const parsed = getObjectTypeAndCleanName(item.title);
+                    const targetFolder = (parsed.type === 'Homepass') ? 'homepass' : 'pole';
+                    const containerEl = document.getElementById(`folder-content-${targetFolder}`);
+                    renderSingleObjectInFolder(item, containerEl);
+                });
+
+                objectCounter.innerText = filteredObjects.length;
+
             } catch (err) {
                 objectListEl.innerHTML = '<span class="text-red-500">Gagal mengambil objek survey.</span>';
             }
         }
 
-        function renderSingleObject(item) {
+        function renderSingleObjectInFolder(item, containerEl) {
             const currentRole = roleSelector.value;
             const currentUserName = currentUserLabel.innerText;
             const isAdmin = currentRole === 'admin';
-            
-            // Sesuai Request 2: Updater dan Surveyor hanya diizinkan edit, hapus, dan geser objek miliknya sendiri
             const isOwner = isAdmin || (item.surveyor === currentUserName);
 
-            const objectListEl = document.getElementById('object-list');
-            
             const parsed = getObjectTypeAndCleanName(item.title);
             let markerIcon = getCustomIcon(parsed);
 
@@ -549,7 +611,6 @@
             const popupContent = document.createElement('div');
             popupContent.className = 'text-xs min-w-[160px] pb-1';
             
-            // Sesuai Request 3: Updater/Surveyor saat klik objek hanya menampilkan Nama object saja, Kategori, Oleh, dan Waktu dihidden
             let popupHtml = `<div class="border-b pb-1 mb-1 font-bold text-[13px] text-gray-800 break-words">${escapeHtml(parsed.cleanTitle)}</div>`;
             
             if (isAdmin) {
@@ -612,10 +673,8 @@
             actionDiv.appendChild(viewLink);
 
             itemDiv.appendChild(actionDiv);
-            objectListEl.appendChild(itemDiv);
+            containerEl.appendChild(itemDiv);
             surveyListItems.set(item.id, itemDiv);
-
-            document.getElementById('object-counter').innerText = surveyMarkers.size;
         }
 
         window.focusObject = (lat, lng) => {
@@ -647,50 +706,8 @@
         supabaseClient.channel('survey_objects_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'survey_objects' }, payload => {
                 const currentBoundaryId = document.getElementById('boundary-select').value;
-                const currentRole = roleSelector.value;
-                const currentUserName = currentUserLabel.innerText;
-                const { eventType, new: newRec, old: oldRec } = payload;
-                
-                if (eventType === 'INSERT' && newRec.boundary_id === currentBoundaryId) {
-                    if (currentRole === 'updater' && newRec.surveyor !== currentUserName) return;
-                    document.getElementById('empty-state')?.remove();
-                    if (!surveyMarkers.has(newRec.id)) renderSingleObject(newRec);
-                } 
-                else if (eventType === 'UPDATE' && newRec.boundary_id === currentBoundaryId) {
-                    if (currentRole === 'updater' && newRec.surveyor !== currentUserName) {
-                        if (surveyMarkers.has(newRec.id)) {
-                            drawnItems.removeLayer(surveyMarkers.get(newRec.id));
-                            surveyMarkers.delete(newRec.id);
-                        }
-                        if (surveyListItems.has(newRec.id)) {
-                            surveyListItems.get(newRec.id).remove();
-                            surveyListItems.delete(newRec.id);
-                        }
-                        return;
-                    }
-                    if (surveyMarkers.has(newRec.id)) {
-                        drawnItems.removeLayer(surveyMarkers.get(newRec.id));
-                        surveyMarkers.delete(newRec.id);
-                    }
-                    if (surveyListItems.has(newRec.id)) {
-                        surveyListItems.get(newRec.id).remove();
-                        surveyListItems.delete(newRec.id);
-                    }
-                    renderSingleObject(newRec);
-                } 
-                else if (eventType === 'DELETE') {
-                    if (surveyMarkers.has(oldRec.id)) {
-                        drawnItems.removeLayer(surveyMarkers.get(oldRec.id));
-                        surveyMarkers.delete(oldRec.id);
-                    }
-                    if (surveyListItems.has(oldRec.id)) {
-                        surveyListItems.get(oldRec.id).remove();
-                        surveyListItems.delete(oldRec.id);
-                    }
-                    document.getElementById('object-counter').innerText = surveyMarkers.size;
-                    if(surveyMarkers.size === 0 && currentBoundaryId) {
-                        document.getElementById('object-list').innerHTML = '<span id="empty-state" class="text-gray-400 italic block mt-2">Belum ada titik survey.</span>';
-                    }
+                if (payload.new?.boundary_id === currentBoundaryId || payload.old?.boundary_id === currentBoundaryId) {
+                    loadObjectsFromDB();
                 }
             }).subscribe();
 
