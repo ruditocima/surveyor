@@ -53,18 +53,17 @@
             <div class="p-4 border-b flex justify-between items-center bg-gray-50">
                 <div>
                     <h2 class="font-bold text-gray-800 text-lg">Panel Kontrol</h2>
-                    <p class="text-xs text-gray-500">Kelola boundary & objek survey</p>
                 </div>
                 <button id="sidebar-close" class="md:hidden text-gray-500 hover:text-red-500 font-bold text-lg px-2 transition">✕</button>
             </div>
 
             <div id="admin-section" class="p-4 border-b bg-blue-50/50">
                 <h3 class="font-semibold text-sm text-blue-700 mb-2 flex items-center">
-                    <span class="mr-1">📤</span> Upload KMZ (Admin)
+                    <span class="mr-1">📤</span> Upload KMZ
                 </h3>
                 <input type="file" id="kmz-file-input" accept=".kmz, .kml" class="block w-full text-xs text-gray-600 file:mr-2 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 mb-2 cursor-pointer transition">
                 <button id="upload-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2.5 px-4 rounded transition shadow-sm">
-                    Proses & Simpan ke Supabase
+                    Proses & Simpan
                 </button>
             </div>
 
@@ -421,7 +420,7 @@
             } catch (err) {
                 alert('Gagal memproses file: ' + err.message);
             } finally {
-                btn.innerText = 'Proses & Simpan ke Supabase'; btn.disabled = false;
+                btn.innerText = 'Proses & Simpan'; btn.disabled = false;
             }
         });
 
