@@ -255,7 +255,7 @@
             return { type: 'Homepass', cleanTitle: title };
         }
 
-        // Diperbaiki: Menggunakan pemetaan escape HTML yang valid untuk mencegah XSS
+        // Diperbaiki: Menggunakan pemetaan escape HTML yang valid & aman dari XSS serta sintaks error
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
@@ -586,7 +586,7 @@
                     const parsed = getObjectTypeAndCleanName(item.title);
                     const targetFolder = (parsed.type === 'Homepass') ? 'homepass' : 'pole';
                     const containerEl = document.getElementById(`folder-content-${targetFolder}`);
-                    renderSingleObjectInFolder(item, containerEl);
+                    if (containerEl) renderSingleObjectInFolder(item, containerEl);
                 });
 
                 objectCounter.innerText = filteredObjects.length;
