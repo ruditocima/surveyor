@@ -990,12 +990,17 @@
         });
 
         // ==========================================
-        // 7. EXPORT KMZ LOGIC
+        // 7. EXPORT KMZ LOGIC (FIXED & ENHANCED)
         // ==========================================
         function geometryToKml(geom) {
-            if (!geom) return '';
-            if (geom.type === 'Point') return `<Point><coordinates>${geom.coordinates.join(',')}</coordinates></Point>`;
-            if (geom.type === 'LineString') return `<LineString><coordinates>${geom.coordinates.map(c => c.join(',')).join(' ')}</coordinates></LineString>`;
+            if (!geom || !geom.type || !geom.coordinates) return '';
+            
+            if (geom.type === 'Point') {
+                return `<Point><coordinates>${geom.coordinates.join(',')}</coordinates></Point>`;
+            }
+            if (geom.type === 'LineString') {
+                return `<LineString><coordinates>${geom.coordinates.map(c => c.join(',')).join(' ')}</coordinates></LineString>`;
+            }
             if (geom.type === 'Polygon') {
                 const rings = geom.coordinates.map((ring, idx) => {
                     const coordStr = ring.map(c => c.join(',')).join(' ');
@@ -1004,12 +1009,22 @@
                 });
                 return `<Polygon>${rings.join('')}</Polygon>`;
             }
+            if (geom.type === 'MultiPoint') {
+                const points = geom.coordinates.map(pt => `<Point><coordinates>${pt.join(',')}</coordinates></Point>`);
+                return `<MultiGeometry>${points.join('')}</MultiGeometry>`;
+            }
+            if (geom.type === 'MultiLineString') {
+                const lines = geom.coordinates.map(line => `<LineString><coordinates>${line.map(c => c.join(',')).join(' ')}</coordinates></LineString>`);
+                return `<MultiGeometry>${lines.join('')}</MultiGeometry>`;
+            }
             if (geom.type === 'MultiPolygon') {
                 const polys = geom.coordinates.map(poly => {
-                    return `<Polygon>` + poly.map((ring, idx) => {
+                    const rings = poly.map((ring, idx) => {
+                        const coordStr = ring.map(c => c.join(',')).join(' ');
                         const tag = idx === 0 ? 'outerBoundaryIs' : 'innerBoundaryIs';
-                        return `<${tag}><LinearRing><coordinates>${ring.map(c => c.join(',')).join(' ')}</coordinates></LinearRing></${tag}>`;
-                    }).join('') + `</Polygon>`;
+                        return `<${tag}><LinearRing><coordinates>${coordStr}</coordinates></LinearRing></${tag}>`;
+                    });
+                    return `<Polygon>${rings.join('')}</Polygon>`;
                 });
                 return `<MultiGeometry>${polys.join('')}</MultiGeometry>`;
             }
@@ -1019,6 +1034,8 @@
         document.getElementById('btn-export-kmz').addEventListener('click', async () => {
             const boundaryId = document.getElementById('boundary-select').value;
             if (!boundaryId) return showToast('Pilih area boundary terlebih dahulu!', 'error');
+
+            showToast('Menyiapkan file KMZ...', 'info');
 
             try {
                 const [boundRes, objRes] = await Promise.all([
@@ -1034,25 +1051,22 @@
   <Document>
     <name>Hasil Survey - ${boundaryData ? escapeHtml(boundaryData.name) : 'Export'}</name>
     <Style id="iconHomepass">
-      <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/paddle/blu-circle.png</href></Icon></IconStyle>
+      <IconStyle>
+        <scale>1.1</scale>
+        <Icon><href>http://maps.google.com/mapfiles/kml/paddle/blu-circle.png</href></Icon>
+      </IconStyle>
     </Style>
     <Style id="iconPoleExt">
-      <IconStyle><color>ffffffff</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
+      <IconStyle>
+        <scale>1.0</scale>
+        <Icon><href>http://maps.google.com/mapfiles/kml/paddle/wht-circle.png</href></Icon>
+      </IconStyle>
     </Style>
-    <Style id="iconPoleNew_T725">
-      <IconStyle><color>ffff00aa</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
-    </Style>
-    <Style id="iconPoleNew_T73">
-      <IconStyle><color>ffffff00</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
-    </Style>
-    <Style id="iconPoleNew_T74">
-      <IconStyle><color>ff00ff00</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
-    </Style>
-    <Style id="iconPoleNew_T94">
-      <IconStyle><color>ff0000ff</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
-    </Style>
-    <Style id="iconPoleNew_Default">
-      <IconStyle><color>ff2626DC</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
+    <Style id="iconPoleNew">
+      <IconStyle>
+        <scale>1.0</scale>
+        <Icon><href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href></Icon>
+      </IconStyle>
     </Style>
     <Style id="boundaryStyle">
       <PolyStyle><color>4Df6823b</color><fill>1</fill><outline>1</outline></Style>
@@ -1061,7 +1075,15 @@
 
                 if (boundaryData?.geojson?.features) {
                     boundaryData.geojson.features.forEach(f => {
-                        kmlContent += `<Placemark><name>${escapeHtml(f.properties?.name || 'Area')}</name><styleUrl>#boundaryStyle</styleUrl>${geometryToKml(f.geometry)}</Placemark>`;
+                        const geomXml = geometryToKml(f.geometry);
+                        if (geomXml) {
+                            kmlContent += `
+    <Placemark>
+      <name>${escapeHtml(f.properties?.name || 'Area Boundary')}</name>
+      <styleUrl>#boundaryStyle</styleUrl>
+      ${geomXml}
+    </Placemark>`;
+                        }
                     });
                 }
 
@@ -1069,12 +1091,7 @@
                     const parsed = getObjectTypeAndCleanName(item.title);
                     let styleUrl = '#iconHomepass';
                     if (parsed.type === 'PoleNew') {
-                        const t = parsed.cleanTitle;
-                        if (t.includes('T7-2,5')) styleUrl = '#iconPoleNew_T725';
-                        else if (t.includes('T7-3')) styleUrl = '#iconPoleNew_T73';
-                        else if (t.includes('T7-4')) styleUrl = '#iconPoleNew_T74';
-                        else if (t.includes('T9-4')) styleUrl = '#iconPoleNew_T94';
-                        else styleUrl = '#iconPoleNew_Default';
+                        styleUrl = '#iconPoleNew';
                     } else if (parsed.type === 'PoleExt') {
                         styleUrl = '#iconPoleExt';
                     }
@@ -1082,26 +1099,32 @@
                     kmlContent += `
     <Placemark>
       <name>${escapeHtml(parsed.cleanTitle)}</name>
-      <description>Kategori: ${escapeHtml(parsed.type)}, Surveyor: ${escapeHtml(item.surveyor)}, Waktu: ${escapeHtml(item.timestamp)}</description>
+      <description><![CDATA[Kategori: ${escapeHtml(parsed.type)}<br>Surveyor: ${escapeHtml(item.surveyor)}<br>Waktu: ${escapeHtml(item.timestamp)]]></description>
       <styleUrl>${styleUrl}</styleUrl>
       <Point><coordinates>${item.lng},${item.lat},0</coordinates></Point>
     </Placemark>`;
                 });
 
-                kmlContent += `</Document></kml>`;
+                kmlContent += `
+  </Document>
+</kml>`;
 
                 const zip = new JSZip();
                 zip.file("doc.kml", kmlContent);
-                const content = await zip.generateAsync({ type: "blob" });
+                const content = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
 
                 const url = URL.createObjectURL(content);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `survey_${boundaryData?.name ? boundaryData.name.replace(/\W+/g, '_') : 'data'}.kmz`;
+                const safeName = boundaryData?.name ? boundaryData.name.replace(/\.[^/.]+$/, "").replace(/\W+/g, '_') : 'survey_data';
+                a.download = `${safeName}.kmz`;
+                document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
                 URL.revokeObjectURL(url);
                 showToast('File KMZ berhasil diekspor!', 'success');
             } catch (err) {
+                console.error(err);
                 showToast('Gagal mengekspor KMZ: ' + err.message, 'error');
             }
         });
