@@ -36,25 +36,24 @@
         <div class="flex items-center space-x-3">
             <div class="hidden sm:flex items-center space-x-2">
                 <label class="text-xs font-medium">Role:</label>
-                <!-- Role selector sekarang dikontrol otomatis dari database -->
-                <select id="role-selector" disabled class="text-black text-xs rounded px-1.5 py-0.5 font-semibold focus:outline-none shadow-sm bg-gray-200 cursor-not-allowed">
+                <select id="role-selector" class="text-black text-xs rounded px-1.5 py-0.5 font-semibold focus:outline-none shadow-sm bg-gray-200 pointer-events-none" disabled>
                     <option value="admin">Admin</option>
                     <option value="surveyor">Surveyor</option>
                     <option value="updater">Updater</option>
                 </select>
             </div>
-            <div class="text-[11px] sm:text-xs bg-blue-700 px-2.5 py-1 rounded truncate max-w-[150px] shadow-inner flex items-center space-x-1">
-                <span>User:</span> <span id="current-user-label" class="font-bold">Memuat...</span>
+            <div class="text-[11px] sm:text-xs bg-blue-700 px-2.5 py-1 rounded truncate max-w-[150px] shadow-inner">
+                User: <span id="current-user-label" class="font-bold">-</span>
             </div>
-            <button id="btn-logout" class="bg-red-500 hover:bg-red-600 text-white text-[11px] font-bold px-2.5 py-1 rounded transition shadow-sm" title="Keluar Akun">
+            <button id="logout-btn" class="bg-red-500 hover:bg-red-600 text-white text-xs px-2.5 py-1 rounded font-bold transition shadow-sm hidden">
                 Logout
             </button>
         </div>
     </header>
 
+    <!-- MAIN BODY -->
     <div class="flex flex-1 relative overflow-hidden">
         
-        <!-- SIDEBAR -->
         <aside id="sidebar" class="absolute md:relative z-30 inset-y-0 left-0 w-80 bg-white shadow-lg flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out overflow-y-auto">
             <div class="p-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
                 <div>
@@ -101,7 +100,6 @@
             </div>
         </aside>
 
-        <!-- MAIN MAP -->
         <main class="flex-1 relative overflow-hidden">
             <div id="map" class="w-full h-full z-10"></div>
 
@@ -114,7 +112,32 @@
         </main>
     </div>
 
-    <!-- MODAL SURVEY KATEGORI -->
+    <!-- LOGIN MODAL -->
+    <div id="login-modal" class="fixed inset-0 bg-black/70 z-[99999] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+            <div class="bg-blue-600 text-white px-6 py-4 font-bold text-base flex items-center justify-between">
+                <span>🔐 Login GIS Survey Pro</span>
+            </div>
+            <div class="p-6 space-y-4">
+                <div id="login-error" class="hidden bg-red-50 text-red-600 text-xs p-3 rounded border border-red-200"></div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Email:</label>
+                    <input type="email" id="login-email" class="w-full text-sm border-gray-300 rounded p-2.5 border focus:ring focus:ring-blue-200" placeholder="nama@domain.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">Password:</label>
+                    <input type="password" id="login-password" class="w-full text-sm border-gray-300 rounded p-2.5 border focus:ring focus:ring-blue-200" placeholder="••••••••">
+                </div>
+            </div>
+            <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
+                <button id="login-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2.5 px-4 rounded transition shadow">
+                    Masuk Aplikasi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SURVEY MODAL -->
     <div id="survey-modal" class="fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
             <div class="bg-blue-600 text-white px-4 py-3 font-bold text-sm flex justify-between items-center">
@@ -168,40 +191,101 @@
         </div>
     </div>
 
-    <!-- MODAL LOGIN SUPABASE AUTH -->
-    <div id="login-modal" class="fixed inset-0 bg-black/70 z-[10000] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-sm p-6 space-y-4">
-            <div class="text-center">
-                <h2 class="text-xl font-bold text-gray-800">🔐 Login GIS Survey Pro</h2>
-                <p class="text-xs text-gray-500 mt-1">Silakan masuk menggunakan akun Supabase Anda</p>
-            </div>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-700 mb-1">Email</label>
-                    <input type="email" id="login-email" class="w-full text-sm border border-gray-300 rounded p-2.5 focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none" placeholder="nama@email.com">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-700 mb-1">Password</label>
-                    <input type="password" id="login-password" class="w-full text-sm border border-gray-300 rounded p-2.5 focus:ring focus:ring-blue-200 focus:border-blue-500 outline-none" placeholder="••••••••">
-                </div>
-                <button id="btn-login-submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2.5 rounded transition shadow-sm mt-2">
-                    Masuk ke Aplikasi
-                </button>
-            </div>
-        </div>
-    </div>
-
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-rotate@latest/dist/leaflet-rotate.js"></script>
     <script>
         // ==========================================
-        // 1. KONFIGURASI SUPABASE & MAP INIT
+        // 0. AUTHENTICATION & LOGIN LOGIC
         // ==========================================
         const SUPABASE_URL = 'https://dqlbumvnklzvzekxcawc.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxbGJ1bXZua2x6dnpla3hjYXdjIiwicm9sZSI6ImFub24iOiJpYXQiOjE3ODg2MjA4NjMsImV4cCI6MjEwNDE5Njg2M30.LdtDCrgVEYNm7PQ5L57-OuWB38Ada8o2q-TZsNfQRgo';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxbGJ1bXZua2x6dnpla3hjYXdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjA4NjMsImV4cCI6MjEwNDE5Njg2M30.LdtDCrgVEYNm7PQ5L57-OuWB38Ada8o2q-TZsNfQRgo';
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        const loginModal = document.getElementById('login-modal');
+        const loginEmailInput = document.getElementById('login-email');
+        const loginPasswordInput = document.getElementById('login-password');
+        const loginBtn = document.getElementById('login-btn');
+        const loginError = document.getElementById('login-error');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        async function checkAuthSession() {
+            const { data: { session }, error } = await supabaseClient.auth.getSession();
+            if (session && session.user) {
+                await handleSuccessfulLogin(session.user);
+            } else {
+                loginModal.classList.remove('hidden');
+            }
+        }
+
+        async function handleSuccessfulLogin(user) {
+            loginModal.classList.add('hidden');
+            if (logoutBtn) logoutBtn.classList.remove('hidden');
+
+            let userRole = 'surveyor';
+            let userName = user.email.split('@')[0];
+
+            try {
+                const { data: profile, error } = await supabaseClient
+                    .from('profiles')
+                    .select('role, name')
+                    .eq('id', user.id)
+                    .single();
+                
+                if (profile) {
+                    if (profile.role) userRole = profile.role;
+                    if (profile.name) userName = profile.name;
+                }
+            } catch (err) {
+                console.warn("Profil tabel tidak ditemukan, menggunakan role default surveyor.");
+            }
+
+            const roleSelectorEl = document.getElementById('role-selector');
+            const currentUserLabelEl = document.getElementById('current-user-label');
+            
+            if (roleSelectorEl) roleSelectorEl.value = userRole;
+            if (currentUserLabelEl) currentUserLabelEl.innerText = userName;
+
+            updateRoleUI();
+        }
+
+        loginBtn.addEventListener('click', async () => {
+            const email = loginEmailInput.value.trim();
+            const password = loginPasswordInput.value.trim();
+
+            if (!email || !password) {
+                loginError.innerText = 'Email dan password wajib diisi!';
+                loginError.classList.remove('hidden');
+                return;
+            }
+
+            loginBtn.innerText = 'Memproses...';
+            loginBtn.disabled = true;
+            loginError.classList.add('hidden');
+
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+            loginBtn.innerText = 'Masuk Aplikasi';
+            loginBtn.disabled = false;
+
+            if (error) {
+                loginError.innerText = 'Login gagal: ' + error.message;
+                loginError.classList.remove('hidden');
+            } else if (data.session) {
+                await handleSuccessfulLogin(data.session.user);
+            }
+        });
+
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                await supabaseClient.auth.signOut();
+                window.location.reload();
+            });
+        }
+
+        // ==========================================
+        // 1. MAP INIT & LAYERS
+        // ==========================================
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 21, maxNativeZoom: 19, attribution: '© OpenStreetMap' });
         const earthLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 21, maxNativeZoom: 20, subdomains: ['0', '1', '2', '3'], attribution: '© Google Satellite' });
 
@@ -289,11 +373,11 @@
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
 
         function pointInPolygon(point, polygon) {
@@ -348,7 +432,7 @@
         }
 
         // ==========================================
-        // 2. AUTHENTICATION & ROLE MANAGEMENT (SUPABASE AUTH)
+        // 2. UI & ROLE MANAGEMENT
         // ==========================================
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -363,61 +447,6 @@
         const currentUserLabel = document.getElementById('current-user-label');
         const exportKmzContainer = document.getElementById('export-kmz-container');
         const objectListSection = document.getElementById('object-list-section');
-        const loginModal = document.getElementById('login-modal');
-
-        async function checkUserSession() {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) {
-                loginModal.classList.remove('hidden');
-            } else {
-                loginModal.classList.add('hidden');
-                await loadUserData(session.user.id);
-            }
-        }
-
-        async function loadUserData(userId) {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', userId)
-                    .single();
-
-                if (error) throw error;
-
-                if (data) {
-                    roleSelector.value = data.role; // 'admin', 'surveyor', 'updater'
-                    currentUserLabel.innerText = data.nama;
-                    updateRoleUI();
-                }
-            } catch (err) {
-                console.error("Gagal memuat profil pengguna:", err);
-                currentUserLabel.innerText = 'User Terautentikasi';
-                roleSelector.value = 'surveyor';
-                updateRoleUI();
-            }
-        }
-
-        document.getElementById('btn-login-submit').addEventListener('click', async () => {
-            const email = document.getElementById('login-email').value.trim();
-            const password = document.getElementById('login-password').value.trim();
-
-            if (!email || !password) return alert('Email dan password wajib diisi!');
-
-            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-            if (error) {
-                alert('Login Gagal: ' + error.message);
-            } else {
-                loginModal.classList.add('hidden');
-                await checkUserSession();
-                loadBoundaries();
-            }
-        });
-
-        document.getElementById('btn-logout').addEventListener('click', async () => {
-            await supabaseClient.auth.signOut();
-            location.reload();
-        });
 
         function updateRoleUI() {
             const role = roleSelector.value;
@@ -1070,4 +1099,28 @@
 
                 kmlContent += `</Document></kml>`;
 
-                const zip =:: JSZip(); // Fixed syntax
+                const zip = new JSZip();
+                zip.file("doc.kml", kmlContent);
+                const content = await zip.generateAsync({ type: "blob" });
+
+                const url = URL.createObjectURL(content);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `survey_${boundaryData?.name ? boundaryData.name.replace(/\W+/g, '_') : 'data'}.kmz`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('Gagal mengekspor KMZ: ' + err.message);
+            }
+        });
+
+        // ==========================================
+        // INISIASI APLIKASI
+        // ==========================================
+        checkSupabaseConnection();
+        loadBoundaries();
+        checkAuthSession();
+
+    </script>
+</body>
+</html>
