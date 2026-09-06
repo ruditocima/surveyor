@@ -108,7 +108,6 @@
         </main>
     </div>
 
-    <!-- SURVEY MODAL -->
     <div id="survey-modal" class="fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
             <div class="bg-blue-600 text-white px-4 py-3 font-bold text-sm flex justify-between items-center">
@@ -131,7 +130,6 @@
                         </select>
                     </div>
 
-                    <!-- DROPDOWN JENIS POLE -->
                     <div id="jenis-pole-container" class="hidden space-y-2 mt-2">
                         <label class="block text-xs font-semibold text-gray-700">Jenis Pole:</label>
                         <select id="modal-jenis-pole-new" class="w-full text-sm border-gray-300 rounded p-2 border bg-white focus:ring focus:ring-blue-200 hidden">
@@ -199,7 +197,7 @@
         let drawnItems = L.layerGroup().addTo(map);
         
         let userLocationMarker = null;
-        let currentBoundaryGeoJSON = null; // Menyimpan batas geojson untuk validasi wilayah
+        let currentBoundaryGeoJSON = null;
 
         const surveyMarkers = new Map();
         const surveyListItems = new Map();
@@ -215,7 +213,7 @@
                 });
             }
             
-            let color = '#DC2626'; // Default pole merah
+            let color = '#DC2626';
             if (parsed.type === 'PoleNew') {
                 const t = parsed.cleanTitle;
                 if (t.includes('T7-2,5')) color = '#aa00ff';
@@ -223,10 +221,9 @@
                 else if (t.includes('T7-4')) color = '#00ff00';
                 else if (t.includes('T9-4')) color = '#ff0000';
             } else if (parsed.type === 'PoleExt') {
-                color = '#ffffff'; // Ext semua putih
+                color = '#ffffff';
             }
 
-            // Ikon pole diperkecil menjadi 16x16px
             return L.divIcon({
                 className: 'custom-survey-marker pole-icon',
                 html: `<div style="filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)); display: flex; align-items: center; justify-content: center;">
@@ -242,7 +239,7 @@
         }
 
         function getObjectTypeAndCleanName(title) {
-            if (!title) return { type: 'Homepass', cleanTitle: 'NN' };
+            if (!title) return { type: 'Homepass', cleanTitle: 'NN-' };
             if (title.startsWith('[PoleNew]')) {
                 return { type: 'PoleNew', cleanTitle: title.replace('[PoleNew]', '').trim() };
             } else if (title.startsWith('[PoleExt]')) {
@@ -258,6 +255,7 @@
             return { type: 'Homepass', cleanTitle: title };
         }
 
+        // Perbaikan Keamanan: Fungsi escapeHtml yang benar untuk Mencegah XSS
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
@@ -268,7 +266,6 @@
                 .replace(/'/g, '&#039;');
         }
 
-        // FUNGSI POINT-IN-POLYGON (PIP) SEDERHANA
         function pointInPolygon(point, polygon) {
             let x = point[0], y = point[1];
             let inside = false;
@@ -282,7 +279,7 @@
         }
 
         function isPointInsideBoundary(lat, lng, geojson) {
-            if (!geojson || !geojson.features) return true; // ijinkan jika batas belum valid
+            if (!geojson || !geojson.features) return true;
             let pt = [lng, lat];
             let insideAny = false;
             for(let feature of geojson.features) {
@@ -401,7 +398,7 @@
                     throw new Error("File KML/KMZ korup atau format XML tidak valid.");
                 }
 
-                const tjParser = window.toGeoJSON || window.tj;
+                const tjParser = window.togeojson || window.toGeoJSON || window.tj;
                 if (!tjParser) throw new Error("Library converter GeoJSON gagal dimuat.");
 
                 const convertedGeoJSON = tjParser.kml(dom);
@@ -713,7 +710,7 @@
             
             if (roleSelector.value === 'updater') {
                 modalCategorySelect.value = 'Pole';
-                modalCategorySelect.disabled = true; // Kunci hanya untuk Pole
+                modalCategorySelect.disabled = true;
                 modalCategorySelect.classList.add('bg-gray-100');
             } else {
                 modalCategorySelect.value = 'Homepass';
@@ -737,7 +734,6 @@
                 return;
             }
 
-            // Validasi Role Updater harus di dalam boundary (atau pakai GPS)
             if (roleSelector.value === 'updater') {
                 if (!isPointInsideBoundary(e.latlng.lat, e.latlng.lng, currentBoundaryGeoJSON)) {
                     alert('Titik berada jauh di luar area boundary!\nSebagai Updater, Anda wajib berada di dalam area atau silahkan mengaktifkan GPS terlebih dahulu jika ingin menambah titik.');
