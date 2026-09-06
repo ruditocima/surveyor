@@ -203,11 +203,11 @@
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+                .replace(/&/g, "&")
+                .replace(/</g, "<")
+                .replace(/>/g, ">")
+                .replace(/"/g, """)
+                .replace(/'/g, "'");
         }
 
         // ==========================================
@@ -811,14 +811,20 @@
 
             const { error } = await supabaseClient.from('survey_objects').update({ title: prefix + newTitle.trim() }).eq('id', id);
             if (error) showToast('Gagal mengedit: ' + error.message, 'error');
-            else showToast('Berhasil mengubah data', 'success');
+            else {
+                showToast('Berhasil mengubah data', 'success');
+                loadObjectsFromDB();
+            }
         };
 
         window.deleteObject = async (id) => {
             if (confirm('Hapus titik ini secara permanen?')) {
                 const { error } = await supabaseClient.from('survey_objects').delete().eq('id', id);
                 if (error) showToast('Gagal menghapus: ' + error.message, 'error');
-                else showToast('Titik berhasil dihapus', 'success');
+                else {
+                    showToast('Titik berhasil dihapus', 'success');
+                    loadObjectsFromDB();
+                }
             }
         };
 
@@ -951,6 +957,8 @@
             } else {
                 showToast('Titik berhasil ditambahkan!', 'success');
                 closeSurveyModal();
+                // Memanggil ulang fungsi load secara langsung agar map dan list ter-update instan
+                loadObjectsFromDB(boundaryId);
             }
         };
 
@@ -1051,7 +1059,6 @@
   <Document>
     <name>Hasil Survey - ${boundaryData ? escapeHtml(boundaryData.name) : 'Export'}</name>
     
-    <!-- Styles -->
     <Style id="iconHomepass">
       <IconStyle><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/blu-circle.png</href></Icon></IconStyle>
     </Style>
@@ -1075,7 +1082,6 @@
       <LineStyle><color>fff6823b</color><width>2</width></LineStyle>
     </Style>
 
-    <!-- Folder: Area Boundary -->
     <Folder>
       <name>Area Boundary</name>`;
 
