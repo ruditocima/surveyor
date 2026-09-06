@@ -199,7 +199,7 @@
         let drawnItems = L.layerGroup().addTo(map);
         
         let userLocationMarker = null;
-        let currentBoundaryGeoJSON = null; // Menyimpan batas geojson untuk validasi wilayah
+        let currentBoundaryGeoJSON = null;
 
         const surveyMarkers = new Map();
         const surveyListItems = new Map();
@@ -215,7 +215,7 @@
                 });
             }
             
-            let color = '#DC2626'; // Default pole merah
+            let color = '#DC2626';
             if (parsed.type === 'PoleNew') {
                 const t = parsed.cleanTitle;
                 if (t.includes('T7-2,5')) color = '#aa00ff';
@@ -223,10 +223,9 @@
                 else if (t.includes('T7-4')) color = '#00ff00';
                 else if (t.includes('T9-4')) color = '#ff0000';
             } else if (parsed.type === 'PoleExt') {
-                color = '#ffffff'; // Ext semua putih
+                color = '#ffffff';
             }
 
-            // Ikon bergaya placemark_circle.png Google Earth
             return L.divIcon({
                 className: 'custom-survey-marker pole-icon',
                 html: `<div style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); display: flex; align-items: center; justify-content: center;">
@@ -268,7 +267,6 @@
                 .replace(/'/g, '&#039;');
         }
 
-        // FUNGSI POINT-IN-POLYGON (PIP) SEDERHANA
         function pointInPolygon(point, polygon) {
             let x = point[0], y = point[1];
             let inside = false;
@@ -282,7 +280,7 @@
         }
 
         function isPointInsideBoundary(lat, lng, geojson) {
-            if (!geojson || !geojson.features) return true; // ijinkan jika batas belum valid
+            if (!geojson || !geojson.features) return true;
             let pt = [lng, lat];
             let insideAny = false;
             for(let feature of geojson.features) {
@@ -614,7 +612,6 @@
             }
         };
 
-        // Realtime Subscription
         supabaseClient.channel('survey_objects_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'survey_objects' }, payload => {
                 const currentBoundaryId = document.getElementById('boundary-select').value;
@@ -713,7 +710,7 @@
             
             if (roleSelector.value === 'updater') {
                 modalCategorySelect.value = 'Pole';
-                modalCategorySelect.disabled = true; // Kunci hanya untuk Pole
+                modalCategorySelect.disabled = true;
                 modalCategorySelect.classList.add('bg-gray-100');
             } else {
                 modalCategorySelect.value = 'Homepass';
@@ -737,11 +734,9 @@
                 return;
             }
 
-            // Validasi Role Updater harus di dalam boundary (atau pakai GPS)
             if (roleSelector.value === 'updater') {
                 if (!isPointInsideBoundary(e.latlng.lat, e.latlng.lng, currentBoundaryGeoJSON)) {
-                    alert('Titik berada jauh di luar area boundary!
-Sebagai Updater, Anda wajib berada di dalam area atau silahkan mengaktifkan GPS terlebih dahulu jika ingin menambah titik.');
+                    alert(`Titik berada jauh di luar area boundary!\nSebagai Updater, Anda wajib berada di dalam area atau silahkan mengaktifkan GPS terlebih dahulu jika ingin menambah titik.`);
                     return;
                 }
             }
@@ -807,7 +802,6 @@ Sebagai Updater, Anda wajib berada di dalam area atau silahkan mengaktifkan GPS 
                 if (!boundaryId) return;
 
                 if (confirm('Simpan kordinat GPS ini sebagai objek survey baru?')) {
-                    // Karena ini GPS, user bisa jadi langsung buka modal untuk menyelaraskan tipe
                     pendingLatLng = { lat, lng };
                     openSurveyModal();
                 }
