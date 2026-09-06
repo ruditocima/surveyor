@@ -530,10 +530,10 @@
                     throw new Error("Format XML KML/KMZ tidak valid.");
                 }
 
-                const tjParser = window.togeojson || window.toGeoJSON;
-                if (!tjParser) throw new Error("Library converter GeoJSON gagal dimuat.");
+                const tj = window.togeojson || window.toGeoJSON;
+                if (!tj) throw new Error("Library converter GeoJSON gagal dimuat.");
 
-                const convertedGeoJSON = tjParser.kml(dom);
+                const convertedGeoJSON = typeof tj.kml === 'function' ? tj.kml(dom) : (tj.default && typeof tj.default.kml === 'function' ? tj.default.kml(dom) : null);
                 if (!convertedGeoJSON?.features?.length) throw new Error('Data KML kosong atau tidak terdeteksi.');
 
                 const boundaryId = 'b_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
