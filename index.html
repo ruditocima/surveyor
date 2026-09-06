@@ -38,6 +38,7 @@
                 <select id="role-selector" class="text-black text-sm rounded px-2 py-1 font-semibold focus:outline-none shadow-sm">
                     <option value="admin">Admin</option>
                     <option value="surveyor">Surveyor</option>
+                    <option value="updater">Updater</option>
                 </select>
             </div>
             <div class="text-xs sm:text-sm bg-blue-700 px-3 py-1 rounded truncate max-w-[150px] shadow-inner">
@@ -107,6 +108,7 @@
         </main>
     </div>
 
+    <!-- SURVEY MODAL -->
     <div id="survey-modal" class="fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
             <div class="bg-blue-600 text-white px-4 py-3 font-bold text-sm flex justify-between items-center">
@@ -120,6 +122,7 @@
                         <option value="Homepass">Homepass</option>
                         <option value="Pole">Pole</option>
                     </select>
+                    
                     <div id="sub-category-container" class="hidden space-y-2 mt-2">
                         <label class="block text-xs font-semibold text-gray-700">Tipe Pole:</label>
                         <select id="modal-pole-select" class="w-full text-sm border-gray-300 rounded p-2 border bg-white focus:ring focus:ring-blue-200">
@@ -127,6 +130,26 @@
                             <option value="Ext">Ext</option>
                         </select>
                     </div>
+
+                    <!-- DROPDOWN JENIS POLE -->
+                    <div id="jenis-pole-container" class="hidden space-y-2 mt-2">
+                        <label class="block text-xs font-semibold text-gray-700">Jenis Pole:</label>
+                        <select id="modal-jenis-pole-new" class="w-full text-sm border-gray-300 rounded p-2 border bg-white focus:ring focus:ring-blue-200 hidden">
+                            <option value="T7-2,5">T7-2,5</option>
+                            <option value="T7-3">T7-3</option>
+                            <option value="T7-4">T7-4</option>
+                            <option value="T9-4">T9-4</option>
+                        </select>
+                        <select id="modal-jenis-pole-ext" class="w-full text-sm border-gray-300 rounded p-2 border bg-white focus:ring focus:ring-blue-200 hidden">
+                            <option value="Bizznet">Bizznet</option>
+                            <option value="Moratel">Moratel</option>
+                            <option value="PLN">PLN</option>
+                            <option value="Telkom">Telkom</option>
+                            <option value="XL">XL</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+
                     <div class="mt-2">
                         <label class="block text-xs font-semibold text-gray-700 mb-1">Nama Objek (Dapat Diedit):</label>
                         <input type="text" id="modal-object-name" class="w-full text-sm border-gray-300 rounded p-2 border focus:ring focus:ring-blue-200" value="NN">
@@ -176,33 +199,47 @@
         let drawnItems = L.layerGroup().addTo(map);
         
         let userLocationMarker = null;
+        let currentBoundaryGeoJSON = null; // Menyimpan batas geojson untuk validasi wilayah
 
         const surveyMarkers = new Map();
         const surveyListItems = new Map();
 
-        const homepassIcon = L.divIcon({
-            className: 'custom-survey-marker homepass-icon',
-            html: '<div style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: flex; align-items: center; justify-content: center;"><svg width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.373 0 0 5.373 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.373 18.627 0 12 0Z" fill="#2563EB"/><circle cx="12" cy="12" r="5" fill="white"/></svg></div>',
-            iconSize: [24, 32],
-            iconAnchor: [12, 32],
-            popupAnchor: [0, -32]
-        });
+        function getCustomIcon(parsed) {
+            if (parsed.type === 'Homepass') {
+                return L.divIcon({
+                    className: 'custom-survey-marker homepass-icon',
+                    html: '<div style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: flex; align-items: center; justify-content: center;"><svg width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.373 0 0 5.373 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.373 18.627 0 12 0Z" fill="#2563EB"/><circle cx="12" cy="12" r="5" fill="white"/></svg></div>',
+                    iconSize: [24, 32],
+                    iconAnchor: [12, 32],
+                    popupAnchor: [0, -32]
+                });
+            }
+            
+            let color = '#DC2626'; // Default pole merah
+            if (parsed.type === 'PoleNew') {
+                const t = parsed.cleanTitle;
+                if (t.includes('T7-2,5')) color = '#aa00ff';
+                else if (t.includes('T7-3')) color = '#00ffff';
+                else if (t.includes('T7-4')) color = '#00ff00';
+                else if (t.includes('T9-4')) color = '#ff0000';
+            } else if (parsed.type === 'PoleExt') {
+                color = '#ffffff'; // Ext semua putih
+            }
 
-        const poleExtIcon = L.divIcon({
-            className: 'custom-survey-marker pole-ext-icon',
-            html: '<div style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: flex; align-items: center; justify-content: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="#2563EB" stroke="white" stroke-width="3"/></svg></div>',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12],
-            popupAnchor: [0, -12]
-        });
-
-        const poleNewIcon = L.divIcon({
-            className: 'custom-survey-marker pole-new-icon',
-            html: '<div style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: flex; align-items: center; justify-content: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="#DC2626" stroke="white" stroke-width="3"/></svg></div>',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12],
-            popupAnchor: [0, -12]
-        });
+            // Ikon bergaya placemark_circle.png Google Earth
+            return L.divIcon({
+                className: 'custom-survey-marker pole-icon',
+                html: `<div style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="10" fill="${color}" stroke="#000000" stroke-width="1.5"/>
+                            <circle cx="12" cy="12" r="2.5" fill="#000000" opacity="0.5"/>
+                        </svg>
+                       </div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+                popupAnchor: [0, -12]
+            });
+        }
 
         function getObjectTypeAndCleanName(title) {
             if (!title) return { type: 'Homepass', cleanTitle: 'NN' };
@@ -231,6 +268,46 @@
                 .replace(/'/g, '&#039;');
         }
 
+        // FUNGSI POINT-IN-POLYGON (PIP) SEDERHANA
+        function pointInPolygon(point, polygon) {
+            let x = point[0], y = point[1];
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                let xi = polygon[i][0], yi = polygon[i][1];
+                let xj = polygon[j][0], yj = polygon[j][1];
+                let intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function isPointInsideBoundary(lat, lng, geojson) {
+            if (!geojson || !geojson.features) return true; // ijinkan jika batas belum valid
+            let pt = [lng, lat];
+            let insideAny = false;
+            for(let feature of geojson.features) {
+                let geom = feature.geometry;
+                if(!geom) continue;
+                if (geom.type === 'Polygon') {
+                    if (pointInPolygon(pt, geom.coordinates[0])) insideAny = true;
+                } else if (geom.type === 'MultiPolygon') {
+                    for (let poly of geom.coordinates) {
+                        if (pointInPolygon(pt, poly[0])) insideAny = true;
+                    }
+                } else if (geom.type === 'GeometryCollection') {
+                    for(let g of geom.geometries) {
+                        if(g.type === 'Polygon' && pointInPolygon(pt, g.coordinates[0])) insideAny = true;
+                        if(g.type === 'MultiPolygon') {
+                            for(let poly of g.coordinates) {
+                                if(pointInPolygon(pt, poly[0])) insideAny = true;
+                            }
+                        }
+                    }
+                }
+            }
+            return insideAny;
+        }
+
         // ==========================================
         // 2. UI & ROLE MANAGEMENT
         // ==========================================
@@ -251,6 +328,9 @@
             if (role === 'admin') {
                 adminSection.style.display = 'block';
                 currentUserLabel.innerText = 'Admin Utama';
+            } else if (role === 'updater') {
+                adminSection.style.display = 'none';
+                currentUserLabel.innerText = 'Updater Lapangan';
             } else {
                 adminSection.style.display = 'none';
                 currentUserLabel.innerText = 'Surveyor Lapangan';
@@ -317,7 +397,6 @@
                 }
 
                 const dom = new DOMParser().parseFromString(kmlText, 'text/xml');
-                
                 if (dom.querySelector('parsererror')) {
                     throw new Error("File KML/KMZ korup atau format XML tidak valid.");
                 }
@@ -326,7 +405,6 @@
                 if (!tjParser) throw new Error("Library converter GeoJSON gagal dimuat.");
 
                 const convertedGeoJSON = tjParser.kml(dom);
-
                 if (!convertedGeoJSON?.features?.length) throw new Error('Data KML kosong atau tidak dikenali.');
 
                 const boundaryId = 'b_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
@@ -348,6 +426,8 @@
 
         async function loadBoundaryToMap(boundaryId) {
             currentLayerGroup.clearLayers();
+            currentBoundaryGeoJSON = null;
+
             if (!boundaryId) {
                 loadObjectsFromDB();
                 return;
@@ -358,6 +438,7 @@
                 if (error) throw error;
 
                 if (data?.geojson) {
+                    currentBoundaryGeoJSON = data.geojson;
                     const layer = L.geoJSON(data.geojson, {
                         style: feature => {
                             const type = feature.geometry?.type || '';
@@ -422,17 +503,15 @@
         }
 
         function renderSingleObject(item) {
-            const isSurveyor = roleSelector.value === 'surveyor';
+            const canEdit = roleSelector.value === 'admin';
             const objectListEl = document.getElementById('object-list');
             
             const parsed = getObjectTypeAndCleanName(item.title);
-            let markerIcon = homepassIcon;
-            if (parsed.type === 'PoleNew') markerIcon = poleNewIcon;
-            else if (parsed.type === 'PoleExt') markerIcon = poleExtIcon;
+            let markerIcon = getCustomIcon(parsed);
 
             const marker = L.marker([item.lat, item.lng], {
                 icon: markerIcon,
-                draggable: !isSurveyor
+                draggable: canEdit
             });
 
             marker.on('dragend', async function(e) {
@@ -453,7 +532,7 @@
                 <div class="text-gray-500"><span class="font-semibold">Waktu:</span> ${escapeHtml(item.timestamp)}</div>
             `;
 
-            if (!isSurveyor) {
+            if (canEdit) {
                 const btnContainer = document.createElement('div');
                 btnContainer.className = 'mt-3 flex space-x-2';
 
@@ -489,7 +568,7 @@
             const actionDiv = document.createElement('div');
             actionDiv.className = 'flex items-center justify-end space-x-2 pt-1 border-t border-gray-100';
 
-            if (!isSurveyor) {
+            if (canEdit) {
                 const editLink = document.createElement('button');
                 editLink.className = 'text-amber-600 hover:text-amber-800 text-[11px] font-bold px-1';
                 editLink.innerText = 'Edit';
@@ -581,14 +660,69 @@
         const modalCategorySelect = document.getElementById('modal-category-select');
         const subCategoryContainer = document.getElementById('sub-category-container');
         const modalPoleSelect = document.getElementById('modal-pole-select');
+        const jenisPoleContainer = document.getElementById('jenis-pole-container');
+        const modalJenisPoleNew = document.getElementById('modal-jenis-pole-new');
+        const modalJenisPoleExt = document.getElementById('modal-jenis-pole-ext');
         const modalObjectName = document.getElementById('modal-object-name');
         const modalSaveBtn = document.getElementById('modal-save-btn');
 
+        function updateModalUI() {
+            const cat = modalCategorySelect.value;
+            const poleType = modalPoleSelect.value;
+            
+            if (cat === 'Homepass') {
+                subCategoryContainer.classList.add('hidden');
+                jenisPoleContainer.classList.add('hidden');
+                modalObjectName.readOnly = false;
+                modalObjectName.classList.remove('bg-gray-100');
+            } else if (cat === 'Pole') {
+                subCategoryContainer.classList.remove('hidden');
+                if (poleType === 'New') {
+                    jenisPoleContainer.classList.remove('hidden');
+                    modalJenisPoleNew.classList.remove('hidden');
+                    modalJenisPoleExt.classList.add('hidden');
+                    modalObjectName.value = modalJenisPoleNew.value;
+                    modalObjectName.readOnly = true;
+                    modalObjectName.classList.add('bg-gray-100');
+                } else if (poleType === 'Ext') {
+                    jenisPoleContainer.classList.remove('hidden');
+                    modalJenisPoleNew.classList.add('hidden');
+                    modalJenisPoleExt.classList.remove('hidden');
+                    modalObjectName.value = modalJenisPoleExt.value;
+                    modalObjectName.readOnly = true;
+                    modalObjectName.classList.add('bg-gray-100');
+                } else {
+                    jenisPoleContainer.classList.add('hidden');
+                    modalObjectName.readOnly = false;
+                    modalObjectName.classList.remove('bg-gray-100');
+                }
+            }
+        }
+
+        modalCategorySelect.addEventListener('change', (e) => {
+            if (e.target.value === 'Homepass') modalObjectName.value = 'NN';
+            updateModalUI();
+        });
+
+        modalPoleSelect.addEventListener('change', updateModalUI);
+        modalJenisPoleNew.addEventListener('change', (e) => { modalObjectName.value = e.target.value; });
+        modalJenisPoleExt.addEventListener('change', (e) => { modalObjectName.value = e.target.value; });
+
         function openSurveyModal() {
             surveyModal.classList.remove('hidden');
-            modalCategorySelect.value = 'Homepass';
-            subCategoryContainer.classList.add('hidden');
-            modalObjectName.value = 'NN';
+            
+            if (roleSelector.value === 'updater') {
+                modalCategorySelect.value = 'Pole';
+                modalCategorySelect.disabled = true; // Kunci hanya untuk Pole
+                modalCategorySelect.classList.add('bg-gray-100');
+            } else {
+                modalCategorySelect.value = 'Homepass';
+                modalCategorySelect.disabled = false;
+                modalCategorySelect.classList.remove('bg-gray-100');
+                modalObjectName.value = 'NN';
+            }
+            
+            updateModalUI();
         }
 
         window.closeSurveyModal = function() {
@@ -596,28 +730,20 @@
             pendingLatLng = null;
         }
 
-        modalCategorySelect.addEventListener('change', (e) => {
-            const val = e.target.value;
-            if (val === 'Homepass') {
-                subCategoryContainer.classList.add('hidden');
-                modalObjectName.value = 'NN';
-            } else if (val === 'Pole') {
-                subCategoryContainer.classList.remove('hidden');
-                modalObjectName.value = modalPoleSelect.value;
-            }
-        });
-
-        modalPoleSelect.addEventListener('change', (e) => {
-            if (modalCategorySelect.value === 'Pole') {
-                modalObjectName.value = e.target.value;
-            }
-        });
-
         map.on('click', (e) => {
             const boundaryId = document.getElementById('boundary-select').value;
             if (!boundaryId) {
                 alert('Pilih area boundary terlebih dahulu di panel kontrol!');
                 return;
+            }
+
+            // Validasi Role Updater harus di dalam boundary (atau pakai GPS)
+            if (roleSelector.value === 'updater') {
+                if (!isPointInsideBoundary(e.latlng.lat, e.latlng.lng, currentBoundaryGeoJSON)) {
+                    alert('Titik berada jauh di luar area boundary!
+Sebagai Updater, Anda wajib berada di dalam area atau silahkan mengaktifkan GPS terlebih dahulu jika ingin menambah titik.');
+                    return;
+                }
             }
 
             pendingLatLng = e.latlng;
@@ -681,16 +807,9 @@
                 if (!boundaryId) return;
 
                 if (confirm('Simpan kordinat GPS ini sebagai objek survey baru?')) {
-                    const title = prompt('Nama titik GPS:', 'Lokasi GPS');
-                    if (!title?.trim()) return;
-
-                    await supabaseClient.from('survey_objects').insert([{
-                        id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                        boundary_id: boundaryId, lat, lng,
-                        title: '[Homepass] ' + title.trim(),
-                        surveyor: currentUserLabel.innerText,
-                        timestamp: new Date().toLocaleTimeString('id-ID')
-                    }]);
+                    // Karena ini GPS, user bisa jadi langsung buka modal untuk menyelaraskan tipe
+                    pendingLatLng = { lat, lng };
+                    openSurveyModal();
                 }
             }, (err) => {
                 btnMyLocation.classList.remove('animate-pulse', 'bg-blue-100');
@@ -746,10 +865,22 @@
       <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/paddle/blu-circle.png</href></Icon></IconStyle>
     </Style>
     <Style id="iconPoleExt">
-      <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/paddle/ltblu-circle.png</href></Icon></IconStyle>
+      <IconStyle><color>ffffffff</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
     </Style>
-    <Style id="iconPoleNew">
-      <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href></Icon></IconStyle>
+    <Style id="iconPoleNew_T725">
+      <IconStyle><color>ffff00aa</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
+    </Style>
+    <Style id="iconPoleNew_T73">
+      <IconStyle><color>ffffff00</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
+    </Style>
+    <Style id="iconPoleNew_T74">
+      <IconStyle><color>ff00ff00</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
+    </Style>
+    <Style id="iconPoleNew_T94">
+      <IconStyle><color>ff0000ff</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
+    </Style>
+    <Style id="iconPoleNew_Default">
+      <IconStyle><color>ff2626DC</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
     </Style>
     <Style id="boundaryStyle">
       <PolyStyle><color>4Df6823b</color><fill>1</fill><outline>1</outline></PolyStyle>
@@ -765,7 +896,14 @@
                 allData.forEach(item => {
                     const parsed = getObjectTypeAndCleanName(item.title);
                     let styleUrl = '#iconHomepass';
-                    if (parsed.type === 'PoleNew') styleUrl = '#iconPoleNew';
+                    if (parsed.type === 'PoleNew') {
+                        const t = parsed.cleanTitle;
+                        if (t.includes('T7-2,5')) styleUrl = '#iconPoleNew_T725';
+                        else if (t.includes('T7-3')) styleUrl = '#iconPoleNew_T73';
+                        else if (t.includes('T7-4')) styleUrl = '#iconPoleNew_T74';
+                        else if (t.includes('T9-4')) styleUrl = '#iconPoleNew_T94';
+                        else styleUrl = '#iconPoleNew_Default';
+                    }
                     else if (parsed.type === 'PoleExt') styleUrl = '#iconPoleExt';
 
                     kmlContent += `
