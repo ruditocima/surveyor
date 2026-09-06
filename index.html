@@ -6,6 +6,7 @@
     <title>GIS Survey Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -201,7 +202,7 @@
         }
 
         function escapeHtml(unsafe) {
-            if (!unsafe) return '';
+            if (unsafe === undefined || unsafe === null) return '';
             return String(unsafe)
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
@@ -404,8 +405,9 @@
         }
 
         function isPointInsideBoundary(lat, lng, geojson) {
-            if (!geojson || !geojson.features) return true;
+            if (!geojson || !geojson.features || geojson.features.length === 0) return true;
             let pt = [lng, lat];
+            let hasPolygon = false;
             let insideAny = false;
 
             function checkPolygonRings(coordinates) {
@@ -420,14 +422,18 @@
             for (let feature of geojson.features) {
                 let geom = feature.geometry;
                 if (!geom) continue;
-                if (geom.type === 'Polygon' && checkPolygonRings(geom.coordinates)) insideAny = true;
-                else if (geom.type === 'MultiPolygon') {
+                if (geom.type === 'Polygon') {
+                    hasPolygon = true;
+                    if (checkPolygonRings(geom.coordinates)) insideAny = true;
+                } else if (geom.type === 'MultiPolygon') {
+                    hasPolygon = true;
                     for (let poly of geom.coordinates) {
                         if (checkPolygonRings(poly)) insideAny = true;
                     }
                 }
             }
-            return insideAny;
+
+            return hasPolygon ? insideAny : true;
         }
 
         // ==========================================
@@ -459,8 +465,7 @@
                 if (objectListSection) objectListSection.style.display = role === 'surveyor' ? 'flex' : 'none';
             }
             const boundaryId = document.getElementById('boundary-select').value;
-            if (boundaryId) loadBoundaryToMap(boundaryId);
-            else loadObjectsFromDB(boundaryId);
+            loadBoundaryToMap(boundaryId);
         }
 
         async function checkSupabaseConnection() {
@@ -526,7 +531,7 @@
                 }
 
                 const tjParser = window.togeojson || window.toGeoJSON;
-                if (!tjParser) throw new Error("Library converter GeoJSON gagal dimuat.");
+                if (!tjParser || typeof tjParser.kml !== 'function') throw new Error("Library converter GeoJSON gagal dimuat.");
 
                 const convertedGeoJSON = tjParser.kml(dom);
                 if (!convertedGeoJSON?.features?.length) throw new Error('Data KML kosong atau tidak terdeteksi.');
@@ -565,13 +570,16 @@
                     currentBoundaryGeoJSON = data.geojson;
                     const currentRole = roleSelector.value;
                     const layer = L.geoJSON(data.geojson, {
+                        filter: (feature) => {
+                            if (currentRole === 'updater' && feature.geometry?.type === 'Point') return false;
+                            return true;
+                        },
                         style: feature => {
                             const type = feature.geometry?.type || '';
                             if (type.includes('Polygon')) return { color: "#3b82f6", weight: 2, fillOpacity: 0.15 };
                             if (type.includes('LineString')) return { color: "#ef4444", weight: 3, opacity: 0.85 };
                         },
                         pointToLayer: (feature, latlng) => {
-                            if (currentRole === 'updater') return null; 
                             return L.circleMarker(latlng, { radius: 5, fillColor: "#3b82f6", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.9 })
                                 .bindPopup(`<div class="text-xs text-center"><b class="text-blue-600">${escapeHtml(feature.properties?.name || 'Titik KML')}</b></div>`);
                         }
@@ -809,15 +817,23 @@
             else if (currentObj?.title?.startsWith('[PoleExt]')) prefix = '[PoleExt] ';
 
             const { error } = await supabaseClient.from('survey_objects').update({ title: prefix + newTitle.trim() }).eq('id', id);
-            if (error) showToast('Gagal mengedit: ' + error.message, 'error');
-            else showToast('Berhasil mengubah data', 'success');
+            if (error) {
+                showToast('Gagal mengedit: ' + error.message, 'error');
+            } else {
+                showToast('Berhasil mengubah data', 'success');
+                await loadObjectsFromDB();
+            }
         };
 
         window.deleteObject = async (id) => {
             if (confirm('Hapus titik ini secara permanen?')) {
                 const { error } = await supabaseClient.from('survey_objects').delete().eq('id', id);
-                if (error) showToast('Gagal menghapus: ' + error.message, 'error');
-                else showToast('Titik berhasil dihapus', 'success');
+                if (error) {
+                    showToast('Gagal menghapus: ' + error.message, 'error');
+                } else {
+                    showToast('Titik berhasil dihapus', 'success');
+                    await loadObjectsFromDB();
+                }
             }
         };
 
@@ -933,6 +949,9 @@
                 else if (poleType === 'Ext') storedTitle = '[PoleExt] ' + rawName;
             }
 
+            const now = new Date();
+            const formattedTimestamp = `${now.toLocaleDateString('id-ID')} ${now.toLocaleTimeString('id-ID')}`;
+
             const newObj = {
                 id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
                 boundary_id: boundaryId,
@@ -940,7 +959,7 @@
                 lng: pendingLatLng.lng,
                 title: storedTitle,
                 surveyor: currentUserLabel.innerText,
-                timestamp: new Date().toLocaleTimeString('id-ID')
+                timestamp: formattedTimestamp
             };
 
             const { error } = await supabaseClient.from('survey_objects').insert([newObj]);
@@ -949,6 +968,7 @@
             } else {
                 showToast('Titik berhasil ditambahkan!', 'success');
                 closeSurveyModal();
+                await loadObjectsFromDB(boundaryId);
             }
         };
 
