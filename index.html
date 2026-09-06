@@ -141,6 +141,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-rotate@latest/dist/leaflet-rotate.js"></script>
     <script>
         // ==========================================
         // 1. KONFIGURASI SUPABASE & MAP INIT
@@ -153,7 +154,21 @@
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 21, maxNativeZoom: 19, attribution: '© OpenStreetMap' });
         const earthLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 21, maxNativeZoom: 20, subdomains: ['0', '1', '2', '3'], attribution: '© Google Satellite' });
 
-        const map = L.map('map', { center: [-2.548926, 118.014863], zoom: 5, layers: [earthLayer], zoomControl: false, maxZoom: 21 });
+        // Inisialisasi peta dengan tambahan parameter rotasi (rotate, touchRotate, rotateControl)
+        const map = L.map('map', { 
+            center: [-2.548926, 118.014863], 
+            zoom: 5, 
+            layers: [earthLayer], 
+            zoomControl: false, 
+            maxZoom: 21,
+            rotate: true,              // Mengaktifkan fitur rotasi peta
+            touchRotate: true,         // Mendukung rotasi dengan dua jari di HP/Touchscreen
+            rotateControl: {
+                position: 'topleft',   // Posisi kontrol rotasi di pojok kiri atas (di bawah zoom)
+                closeOnZeroBearing: false
+            }
+        });
+        
         L.control.zoom({ position: 'topleft' }).addTo(map);
 
         const baseMaps = { "🌍 Tampilan Earth (Satelit)": earthLayer, "🗺️ Peta Jalan (Standard)": osmLayer };
@@ -211,11 +226,11 @@
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
+                .replace(/&/g, '&')
+                .replace(/</g, '<')
+                .replace(/>/g, '>')
+                .replace(/"/g, '"')
+                .replace(/'/g, ''');
         }
 
         // ==========================================
@@ -600,7 +615,6 @@
             }
         });
 
-        // Otomatis tangkap klik peta kapan saja (tanpa tombol aktifasi manual)
         map.on('click', (e) => {
             const boundaryId = document.getElementById('boundary-select').value;
             if (!boundaryId) {
