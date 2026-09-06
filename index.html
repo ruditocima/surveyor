@@ -255,15 +255,14 @@
             return { type: 'Homepass', cleanTitle: title };
         }
 
-        // Perbaikan Keamanan: Fungsi escapeHtml yang benar untuk Mencegah XSS
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
+                .replace(/&/g, '&')
+                .replace(/</g, '<')
+                .replace(/>/g, '>')
+                .replace(/"/g, '"')
+                .replace(/'/g, ''');
         }
 
         function pointInPolygon(point, polygon) {
@@ -468,6 +467,8 @@
             const boundaryId = document.getElementById('boundary-select').value;
             const objectListEl = document.getElementById('object-list');
             const objectCounter = document.getElementById('object-counter');
+            const currentRole = roleSelector.value;
+            const currentUserName = currentUserLabel.innerText;
             
             drawnItems.clearLayers();
             surveyMarkers.clear();
@@ -488,19 +489,31 @@
 
                 objectListEl.innerHTML = '';
 
-                if (!objects?.length) {
-                    objectListEl.innerHTML = '<span id="empty-state" class="text-gray-400 italic block mt-2">Belum ada titik survey manual/GPS di area ini.</span>';
+                let filteredObjects = objects || [];
+                // Permintaan 1: Role Updater hanya menampilkan boundary-nya saja (tidak menampilkan titik orang lain/titik lama)
+                if (currentRole === 'updater') {
+                    filteredObjects = filteredObjects.filter(item => item.surveyor === currentUserName);
+                }
+
+                if (!filteredObjects.length) {
+                    objectListEl.innerHTML = '<span id="empty-state" class="text-gray-400 italic block mt-2">Belum ada titik survey di area ini.</span>';
                     return;
                 }
 
-                objects.forEach(renderSingleObject);
+                filteredObjects.forEach(renderSingleObject);
             } catch (err) {
                 objectListEl.innerHTML = '<span class="text-red-500">Gagal mengambil objek survey.</span>';
             }
         }
 
         function renderSingleObject(item) {
-            const canEdit = roleSelector.value === 'admin';
+            const currentRole = roleSelector.value;
+            const currentUserName = currentUserLabel.innerText;
+            const isAdmin = currentRole === 'admin';
+            
+            // Permintaan 2: Updater dan Surveyor hanya bisa edit, hapus, dan geser objek buatan mereka sendiri
+            const isOwner = isAdmin || (item.surveyor === currentUserName);
+
             const objectListEl = document.getElementById('object-list');
             
             const parsed = getObjectTypeAndCleanName(item.title);
@@ -508,10 +521,15 @@
 
             const marker = L.marker([item.lat, item.lng], {
                 icon: markerIcon,
-                draggable: canEdit
+                draggable: isOwner
             });
 
             marker.on('dragend', async function(e) {
+                if (!isOwner) {
+                    alert('Anda tidak memiliki izin untuk menggeser objek ini!');
+                    marker.setLatLng([item.lat, item.lng]);
+                    return;
+                }
                 const newPos = e.target.getLatLng();
                 const { error } = await supabaseClient.from('survey_objects').update({ lat: newPos.lat, lng: newPos.lng }).eq('id', item.id);
                 if (error) {
@@ -522,14 +540,20 @@
 
             const popupContent = document.createElement('div');
             popupContent.className = 'text-xs min-w-[160px] pb-1';
-            popupContent.innerHTML = `
-                <div class="border-b pb-1 mb-1 font-bold text-[13px] text-gray-800 break-words">${escapeHtml(parsed.cleanTitle)}</div>
-                <div class="text-gray-600 mb-0.5"><span class="font-semibold">Kategori:</span> ${escapeHtml(parsed.type)}</div>
-                <div class="text-gray-600 mb-0.5"><span class="font-semibold">Oleh:</span> ${escapeHtml(item.surveyor)}</div>
-                <div class="text-gray-500"><span class="font-semibold">Waktu:</span> ${escapeHtml(item.timestamp)}</div>
-            `;
+            
+            // Permintaan 3: Updater & Surveyor saat klik objek hanya menampilkan Nama object, kategori/oleh/waktu dihidden
+            let popupHtml = `<div class="border-b pb-1 mb-1 font-bold text-[13px] text-gray-800 break-words">${escapeHtml(parsed.cleanTitle)}</div>`;
+            
+            if (isAdmin) {
+                popupHtml += `
+                    <div class="text-gray-600 mb-0.5"><span class="font-semibold">Kategori:</span> ${escapeHtml(parsed.type)}</div>
+                    <div class="text-gray-600 mb-0.5"><span class="font-semibold">Oleh:</span> ${escapeHtml(item.surveyor)}</div>
+                    <div class="text-gray-500"><span class="font-semibold">Waktu:</span> ${escapeHtml(item.timestamp)}</div>
+                `;
+            }
+            popupContent.innerHTML = popupHtml;
 
-            if (canEdit) {
+            if (isOwner) {
                 const btnContainer = document.createElement('div');
                 btnContainer.className = 'mt-3 flex space-x-2';
 
@@ -565,7 +589,7 @@
             const actionDiv = document.createElement('div');
             actionDiv.className = 'flex items-center justify-end space-x-2 pt-1 border-t border-gray-100';
 
-            if (canEdit) {
+            if (isOwner) {
                 const editLink = document.createElement('button');
                 editLink.className = 'text-amber-600 hover:text-amber-800 text-[11px] font-bold px-1';
                 editLink.innerText = 'Edit';
@@ -611,17 +635,31 @@
             }
         };
 
-        // Realtime Subscription
+        // Realtime Subscription dengan filter role Updater
         supabaseClient.channel('survey_objects_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'survey_objects' }, payload => {
                 const currentBoundaryId = document.getElementById('boundary-select').value;
+                const currentRole = roleSelector.value;
+                const currentUserName = currentUserLabel.innerText;
                 const { eventType, new: newRec, old: oldRec } = payload;
                 
                 if (eventType === 'INSERT' && newRec.boundary_id === currentBoundaryId) {
+                    if (currentRole === 'updater' && newRec.surveyor !== currentUserName) return;
                     document.getElementById('empty-state')?.remove();
                     if (!surveyMarkers.has(newRec.id)) renderSingleObject(newRec);
                 } 
                 else if (eventType === 'UPDATE' && newRec.boundary_id === currentBoundaryId) {
+                    if (currentRole === 'updater' && newRec.surveyor !== currentUserName) {
+                        if (surveyMarkers.has(newRec.id)) {
+                            drawnItems.removeLayer(surveyMarkers.get(newRec.id));
+                            surveyMarkers.delete(newRec.id);
+                        }
+                        if (surveyListItems.has(newRec.id)) {
+                            surveyListItems.get(newRec.id).remove();
+                            surveyListItems.delete(newRec.id);
+                        }
+                        return;
+                    }
                     if (surveyMarkers.has(newRec.id)) {
                         drawnItems.removeLayer(surveyMarkers.get(newRec.id));
                         surveyMarkers.delete(newRec.id);
@@ -877,7 +915,7 @@
       <IconStyle><color>ff2626DC</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
     </Style>
     <Style id="boundaryStyle">
-      <PolyStyle><color>4Df6823b</color><fill>1</fill><outline>1</outline></PolyStyle>
+      <PolyStyle><color>4Df6823b</color><fill>1</fill><outline>1</outline></Style>
       <LineStyle><color>fff6823b</color><width>2</width></LineStyle>
     </Style>`;
 
