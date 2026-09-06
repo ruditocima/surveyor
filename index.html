@@ -255,14 +255,17 @@
             return { type: 'Homepass', cleanTitle: title };
         }
 
+        // Perbaikan Syntax Error: Menggunakan mapping objek aman tanpa karakter terurai
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
-            return String(unsafe)
-                .replace(/&/g, '&')
-                .replace(/</g, '<')
-                .replace(/>/g, '>')
-                .replace(/"/g, '"')
-                .replace(/'/g, ''');
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(unsafe).replace(/[&<>"']/g, m => map[m]);
         }
 
         function pointInPolygon(point, polygon) {
@@ -331,7 +334,9 @@
                 adminSection.style.display = 'none';
                 currentUserLabel.innerText = 'Surveyor Lapangan';
             }
-            loadObjectsFromDB(); 
+            const boundaryId = document.getElementById('boundary-select').value;
+            if (boundaryId) loadBoundaryToMap(boundaryId);
+            else loadObjectsFromDB();
         }
         roleSelector.addEventListener('change', updateRoleUI);
 
@@ -435,6 +440,7 @@
 
                 if (data?.geojson) {
                     currentBoundaryGeoJSON = data.geojson;
+                    const currentRole = roleSelector.value;
                     const layer = L.geoJSON(data.geojson, {
                         style: feature => {
                             const type = feature.geometry?.type || '';
@@ -442,6 +448,8 @@
                             if (type.includes('LineString')) return { color: "#ef4444", weight: 3, opacity: 0.85 };
                         },
                         pointToLayer: (feature, latlng) => {
+                            // Sesuai Request 1: Untuk Updater, titik/garis asli dari file boundary dihidden agar hanya menampilkan boundary-nya saja
+                            if (currentRole === 'updater') return null; 
                             return L.circleMarker(latlng, { radius: 5, fillColor: "#3b82f6", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.9 })
                                 .bindPopup(`<div class="text-xs text-center"><b class="text-blue-600">${escapeHtml(feature.properties?.name || 'Titik KML')}</b></div>`);
                         }
@@ -490,7 +498,7 @@
                 objectListEl.innerHTML = '';
 
                 let filteredObjects = objects || [];
-                // Permintaan 1: Role Updater hanya menampilkan boundary-nya saja (tidak menampilkan titik orang lain/titik lama)
+                // Sesuai Request 1: Updater tidak menampilkan titik lain (hanya miliknya sendiri)
                 if (currentRole === 'updater') {
                     filteredObjects = filteredObjects.filter(item => item.surveyor === currentUserName);
                 }
@@ -511,7 +519,7 @@
             const currentUserName = currentUserLabel.innerText;
             const isAdmin = currentRole === 'admin';
             
-            // Permintaan 2: Updater dan Surveyor hanya bisa edit, hapus, dan geser objek buatan mereka sendiri
+            // Sesuai Request 2: Updater dan Surveyor hanya diizinkan edit, hapus, dan geser objek miliknya sendiri
             const isOwner = isAdmin || (item.surveyor === currentUserName);
 
             const objectListEl = document.getElementById('object-list');
@@ -541,7 +549,7 @@
             const popupContent = document.createElement('div');
             popupContent.className = 'text-xs min-w-[160px] pb-1';
             
-            // Permintaan 3: Updater & Surveyor saat klik objek hanya menampilkan Nama object, kategori/oleh/waktu dihidden
+            // Sesuai Request 3: Updater/Surveyor saat klik objek hanya menampilkan Nama object saja, Kategori, Oleh, dan Waktu dihidden
             let popupHtml = `<div class="border-b pb-1 mb-1 font-bold text-[13px] text-gray-800 break-words">${escapeHtml(parsed.cleanTitle)}</div>`;
             
             if (isAdmin) {
@@ -635,7 +643,7 @@
             }
         };
 
-        // Realtime Subscription dengan filter role Updater
+        // Realtime Subscription
         supabaseClient.channel('survey_objects_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'survey_objects' }, payload => {
                 const currentBoundaryId = document.getElementById('boundary-select').value;
@@ -915,7 +923,7 @@
       <IconStyle><color>ff2626DC</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
     </Style>
     <Style id="boundaryStyle">
-      <PolyStyle><color>4Df6823b</color><fill>1</fill><outline>1</outline></Style>
+      <PolyStyle><color>4Df6823b</color><fill>1</fill><outline>1</outline></PolyStyle>
       <LineStyle><color>fff6823b</color><width>2</width></LineStyle>
     </Style>`;
 
