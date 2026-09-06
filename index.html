@@ -206,7 +206,7 @@
                 .replace(/&/g, "&")
                 .replace(/</g, "<")
                 .replace(/>/g, ">")
-                .replace(/"/g, """)
+                .replace(/"/g, '&quot;')
                 .replace(/'/g, "'");
         }
 
@@ -957,7 +957,6 @@
             } else {
                 showToast('Titik berhasil ditambahkan!', 'success');
                 closeSurveyModal();
-                // Memanggil ulang fungsi load secara langsung agar map dan list ter-update instan
                 loadObjectsFromDB(boundaryId);
             }
         };
@@ -1105,7 +1104,6 @@
                 const homepassObjects = allData.filter(item => getObjectTypeAndCleanName(item.title).type === 'Homepass');
                 const poleObjects = allData.filter(item => getObjectTypeAndCleanName(item.title).type.startsWith('Pole'));
 
-                // Folder: Homepass
                 kmlContent += `
     <Folder>
       <name>Homepass (${homepassObjects.length})</name>`;
@@ -1124,7 +1122,6 @@
                 kmlContent += `
     </Folder>`;
 
-                // Folder: Pole
                 kmlContent += `
     <Folder>
       <name>Pole (${poleObjects.length})</name>`;
