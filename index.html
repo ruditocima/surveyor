@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GIS Survey</title>
+    <title>GIS Survey Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        #map { height: calc(100vh - 3rem); }
+        #map { height: calc(100dvh - 3rem); }
         .leaflet-container.crosshair-cursor-enabled {
             cursor: crosshair !important;
         }
@@ -20,17 +20,17 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 flex flex-col h-screen overflow-hidden">
+<body class="bg-gray-100 flex flex-col h-[100dvh] overflow-hidden">
 
-    <header class="bg-blue-600 text-white shadow-md h-12 flex items-center justify-between px-4 z-20">
+    <header class="bg-blue-600 text-white shadow-md h-12 flex items-center justify-between px-4 z-20 shrink-0">
         <div class="flex items-center space-x-3">
-            <button id="sidebar-toggle" class="md:hidden text-white focus:outline-none p-1 rounded hover:bg-blue-700" title="Toggle Sidebar">
+            <button id="sidebar-toggle" class="md:hidden text-white focus:outline-none p-1 rounded hover:bg-blue-700 transition" title="Toggle Sidebar">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
             </button>
             <span class="text-base md:text-lg font-bold truncate">🗺️ GIS Survey</span>
-            <span id="sync-status" class="text-[10px] bg-yellow-500 px-2 py-0.5 rounded-full text-white whitespace-nowrap">Connecting...</span>
+            <span id="sync-status" class="text-[10px] bg-yellow-500 px-2 py-0.5 rounded-full text-white whitespace-nowrap shadow-sm">Connecting...</span>
         </div>
         <div class="flex items-center space-x-3">
             <div class="hidden sm:flex items-center space-x-2">
@@ -50,14 +50,14 @@
     <div class="flex flex-1 relative overflow-hidden">
         
         <aside id="sidebar" class="absolute md:relative z-30 inset-y-0 left-0 w-80 bg-white shadow-lg flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out overflow-y-auto">
-            <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+            <div class="p-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
                 <div>
                     <h2 class="font-bold text-gray-800 text-lg">Panel Kontrol</h2>
                 </div>
                 <button id="sidebar-close" class="md:hidden text-gray-500 hover:text-red-500 font-bold text-lg px-2 transition">✕</button>
             </div>
 
-            <div id="admin-section" class="p-4 border-b bg-blue-50/50">
+            <div id="admin-section" class="p-4 border-b bg-blue-50/50 shrink-0">
                 <h3 class="font-semibold text-sm text-blue-700 mb-2 flex items-center">
                     <span class="mr-1">📤</span> Upload KMZ
                 </h3>
@@ -67,14 +67,14 @@
                 </button>
             </div>
 
-            <div class="p-4 border-b">
+            <div class="p-4 border-b shrink-0">
                 <h3 class="font-semibold text-sm text-gray-700 mb-2">📂 Pilih Area / Boundary</h3>
                 <select id="boundary-select" class="w-full text-sm border-gray-300 rounded p-2 focus:ring focus:ring-blue-200 focus:border-blue-500 shadow-sm border bg-white">
                     <option value="">-- Memuat Area dari Supabase --</option>
                 </select>
             </div>
 
-            <div class="p-4 border-b">
+            <div class="p-4 border-b shrink-0">
                 <h3 class="font-semibold text-sm text-gray-700 mb-2">📍 Opsi Survey</h3>
                 <div id="export-kmz-container" class="grid grid-cols-1 gap-2">
                     <button id="btn-export-kmz" class="bg-amber-500 hover:bg-amber-600 text-white text-xs py-2 px-2 rounded font-medium shadow-sm transition">📥 Export KMZ</button>
@@ -85,7 +85,7 @@
             </div>
 
             <div id="object-list-section" class="p-4 flex-1 flex flex-col min-h-[250px] bg-gray-50">
-                <h3 class="font-semibold text-sm text-gray-700 mb-3 flex items-center justify-between">
+                <h3 class="font-semibold text-sm text-gray-700 mb-3 flex items-center justify-between shrink-0">
                     <span>📋 Daftar Objek</span>
                     <span id="object-counter" class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">0</span>
                 </h3>
@@ -95,7 +95,7 @@
             </div>
         </aside>
 
-        <main class="flex-1 relative">
+        <main class="flex-1 relative overflow-hidden">
             <div id="map" class="w-full h-full z-10"></div>
 
             <button id="btn-my-location" class="absolute bottom-6 right-6 bg-white hover:bg-gray-50 text-blue-600 font-bold p-3.5 rounded-full shadow-xl z-[400] flex items-center justify-center border border-gray-200 transition-transform transform hover:scale-105" title="Lokasi Saya & Tambah Titik GPS">
@@ -255,16 +255,15 @@
             return { type: 'Homepass', cleanTitle: title };
         }
 
+        // Diperbaiki: Menggunakan pemetaan escape HTML yang valid untuk mencegah XSS
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return String(unsafe).replace(/[&<>"']/g, m => map[m]);
+            return String(unsafe)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         function pointInPolygon(point, polygon) {
@@ -956,7 +955,7 @@
       <IconStyle><color>ff2626DC</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
     </Style>
     <Style id="boundaryStyle">
-      <PolyStyle><color>4Df6823b</color><fill>1</fill><outline>1</outline></PolyStyle>
+      <PolyStyle><color>4Df6823b</color><fill>1</fill><outline>1</outline></Style>
       <LineStyle><color>fff6823b</color><width>2</width></LineStyle>
     </Style>`;
 
