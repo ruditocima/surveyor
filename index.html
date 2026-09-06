@@ -144,7 +144,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // ==========================================
-        // 1. KONFIGURASI SUPABASE & MAP INIT[cite: 1]
+        // 1. KONFIGURASI SUPABASE & MAP INIT
         // ==========================================
         const SUPABASE_URL = 'https://dqlbumvnklzvzekxcawc.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxbGJ1bXZua2x6dnpla3hjYXdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjA4NjMsImV4cCI6MjEwNDE5Njg2M30.LdtDCrgVEYNm7PQ5L57-OuWB38Ada8o2q-TZsNfQRgo';
@@ -169,7 +169,6 @@
         const surveyMarkers = new Map();
         const surveyListItems = new Map();
 
-        // [PERBAIKAN] Ikon bersih berbasis SVG untuk Homepass, Pole Ext, dan Pole New (tanpa link eksternal rusak)[cite: 1]
         const homepassIcon = L.divIcon({
             className: 'custom-survey-marker homepass-icon',
             html: '<div style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: flex; align-items: center; justify-content: center;"><svg width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.373 0 0 5.373 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5.373 18.627 0 12 0Z" fill="#2563EB"/><circle cx="12" cy="12" r="5" fill="white"/></svg></div>',
@@ -211,7 +210,7 @@
             return { type: 'Homepass', cleanTitle: title };
         }
 
-        // [PERBAIKAN] Fungsi escapeHtml yang aman dari Syntax Error dan XSS[cite: 1]
+        // [PERBAIKAN UTAMA] Fungsi escapeHtml yang benar dan aman dari XSS serta Error Sintaksis
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
@@ -223,7 +222,7 @@
         }
 
         // ==========================================
-        // 2. UI & ROLE MANAGEMENT[cite: 1]
+        // 2. UI & ROLE MANAGEMENT
         // ==========================================
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -264,7 +263,7 @@
         }
 
         // ==========================================
-        // 3. BOUNDARY & KMZ UPLOAD LOGIC[cite: 1]
+        // 3. BOUNDARY & KMZ UPLOAD LOGIC
         // ==========================================
         async function loadBoundaries() {
             const select = document.getElementById('boundary-select');
@@ -376,7 +375,7 @@
         });
 
         // ==========================================
-        // 4. LOGIKA OBJEK SURVEY (GRANULAR REALTIME)[cite: 1]
+        // 4. LOGIKA OBJEK SURVEY (GRANULAR REALTIME)
         // ==========================================
         async function loadObjectsFromDB() {
             const boundaryId = document.getElementById('boundary-select').value;
@@ -511,7 +510,6 @@
             const newTitle = prompt('Edit nama objek survey:', currentTitle);
             if (!newTitle || !newTitle.trim()) return;
             
-            // Keep existing prefix type if present in DB title
             const { data: currentObj } = await supabaseClient.from('survey_objects').select('title').eq('id', id).single();
             let prefix = '[Homepass] ';
             if (currentObj?.title?.startsWith('[PoleNew]')) prefix = '[PoleNew] ';
@@ -565,7 +563,7 @@
             }).subscribe();
 
         // ==========================================
-        // 5. TAMBAH TITIK & GEOLOKASI GPS[cite: 1]
+        // 5. TAMBAH TITIK & GEOLOKASI GPS
         // ==========================================
         const btnAddMarker = document.getElementById('btn-add-marker');
         const modeStatus = document.getElementById('mode-status');
@@ -713,7 +711,7 @@
         });
 
         // ==========================================
-        // 6. EXPORT KMZ LOGIC[cite: 1]
+        // 6. EXPORT KMZ LOGIC (Diperbarui dengan Icon Valid Google Earth)
         // ==========================================
         function geometryToKml(geom) {
             if (!geom) return '';
@@ -757,13 +755,13 @@
   <Document>
     <name>Hasil Survey - ${boundaryData ? escapeHtml(boundaryData.name) : 'Export'}</name>
     <Style id="iconHomepass">
-      <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/paddle/blu-blank.png</href></Icon></IconStyle>
+      <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/paddle/blu-circle.png</href></Icon></IconStyle>
     </Style>
     <Style id="iconPoleExt">
-      <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
+      <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/paddle/ltblu-circle.png</href></Icon></IconStyle>
     </Style>
     <Style id="iconPoleNew">
-      <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
+      <IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href></Icon></IconStyle>
     </Style>
     <Style id="boundaryStyle">
       <PolyStyle><color>4Df6823b</color><fill>1</fill><outline>1</outline></PolyStyle>
@@ -809,7 +807,7 @@
         });
 
         // ==========================================
-        // INIT APLIKASI[cite: 1]
+        // INIT APLIKASI
         // ==========================================
         checkSupabaseConnection();
         loadBoundaries();
