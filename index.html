@@ -22,7 +22,8 @@
 </head>
 <body class="bg-gray-100 flex flex-col h-[100dvh] overflow-hidden">
 
-    <header class="bg-blue-600 text-white shadow-md h-12 flex items-center justify-between px-4 z-20 shrink-0 hidden">
+    <!-- HEADER -->
+    <header class="bg-blue-600 text-white shadow-md h-12 flex items-center justify-between px-4 z-20 shrink-0">
         <div class="flex items-center space-x-3">
             <button id="sidebar-toggle" class="md:hidden text-white focus:outline-none p-1 rounded hover:bg-blue-700 transition" title="Toggle Sidebar">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -50,9 +51,10 @@
         </div>
     </header>
 
+    <!-- MAIN BODY -->
     <div class="flex flex-1 relative overflow-hidden">
         
-        <aside id="sidebar" class="absolute md:relative z-30 inset-y-0 left-0 w-80 bg-white shadow-lg flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out overflow-y-auto hidden">
+        <aside id="sidebar" class="absolute md:relative z-30 inset-y-0 left-0 w-80 bg-white shadow-lg flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out overflow-y-auto">
             <div class="p-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
                 <div>
                     <h2 class="font-bold text-gray-800 text-lg">Panel Kontrol</h2>
@@ -110,8 +112,9 @@
         </main>
     </div>
 
-    <div id="login-modal" class="fixed inset-0 bg-transparent z-[99999] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden transform transition-all border border-gray-200">
+    <!-- LOGIN MODAL -->
+    <div id="login-modal" class="fixed inset-0 bg-black/70 z-[99999] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
             <div class="bg-blue-600 text-white px-6 py-4 font-bold text-base flex items-center justify-between">
                 <span>🔐 Login GIS Survey Pro</span>
             </div>
@@ -134,6 +137,7 @@
         </div>
     </div>
 
+    <!-- SURVEY MODAL -->
     <div id="survey-modal" class="fixed inset-0 bg-black/50 z-[9999] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
             <div class="bg-blue-600 text-white px-4 py-3 font-bold text-sm flex justify-between items-center">
@@ -204,8 +208,6 @@
         const loginBtn = document.getElementById('login-btn');
         const loginError = document.getElementById('login-error');
         const logoutBtn = document.getElementById('logout-btn');
-        const headerEl = document.querySelector('header');
-        const sidebarEl = document.getElementById('sidebar');
 
         async function checkAuthSession() {
             const { data: { session }, error } = await supabaseClient.auth.getSession();
@@ -213,15 +215,11 @@
                 await handleSuccessfulLogin(session.user);
             } else {
                 loginModal.classList.remove('hidden');
-                if (headerEl) headerEl.classList.add('hidden');
-                if (sidebarEl) sidebarEl.classList.add('hidden');
             }
         }
 
         async function handleSuccessfulLogin(user) {
             loginModal.classList.add('hidden');
-            if (headerEl) headerEl.classList.remove('hidden');
-            if (sidebarEl) sidebarEl.classList.remove('hidden');
             if (logoutBtn) logoutBtn.classList.remove('hidden');
 
             let userRole = 'surveyor';
@@ -375,11 +373,11 @@
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
-                .replace(/&/g, "&")
-                .replace(/</g, "<")
-                .replace(/>/g, ">")
-                .replace(/"/g, """)
-                .replace(/'/g, "'");
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
 
         function pointInPolygon(point, polygon) {
@@ -473,8 +471,7 @@
         async function checkSupabaseConnection() {
             const syncEl = document.getElementById('sync-status');
             try {
-                const { error } = await supabaseClient.from('boundaries').select('id').limit(1);
-                if (error) throw error;
+                await supabaseClient.from('boundaries').select('id').limit(1).throwOnError();
                 syncEl.className = 'text-[10px] bg-green-500 px-2 py-0.5 rounded-full text-white whitespace-nowrap shadow-sm';
                 syncEl.innerText = 'Live Sync Active';
             } catch (err) {
@@ -540,8 +537,7 @@
                 if (!convertedGeoJSON?.features?.length) throw new Error('Data KML kosong atau tidak dikenali.');
 
                 const boundaryId = 'b_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-                const { error: insertError } = await supabaseClient.from('boundaries').insert([{ id: boundaryId, name: file.name, geojson: convertedGeoJSON }]);
-                if (insertError) throw insertError;
+                await supabaseClient.from('boundaries').insert([{ id: boundaryId, name: file.name, geojson: convertedGeoJSON }]).throwOnError();
 
                 alert('File berhasil diunggah ke Supabase!');
                 fileInput.value = '';
