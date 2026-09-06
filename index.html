@@ -369,11 +369,11 @@
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
-                .replace(/&/g, "&")
-                .replace(/</g, "<")
-                .replace(/>/g, ">")
-                .replace(/"/g, """)
-                .replace(/'/g, "'");
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
 
         function pointInPolygon(point, polygon) {
@@ -467,7 +467,8 @@
         async function checkSupabaseConnection() {
             const syncEl = document.getElementById('sync-status');
             try {
-                await supabaseClient.from('boundaries').select('id').limit(1).throwOnError();
+                const { error } = await supabaseClient.from('boundaries').select('id').limit(1);
+                if (error) throw error;
                 syncEl.className = 'text-[10px] bg-green-500 px-2 py-0.5 rounded-full text-white whitespace-nowrap shadow-sm';
                 syncEl.innerText = 'Live Sync Active';
             } catch (err) {
@@ -533,7 +534,8 @@
                 if (!convertedGeoJSON?.features?.length) throw new Error('Data KML kosong atau tidak dikenali.');
 
                 const boundaryId = 'b_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-                await supabaseClient.from('boundaries').insert([{ id: boundaryId, name: file.name, geojson: convertedGeoJSON }]).throwOnError();
+                const { error: insertError } = await supabaseClient.from('boundaries').insert([{ id: boundaryId, name: file.name, geojson: convertedGeoJSON }]);
+                if (insertError) throw insertError;
 
                 alert('File berhasil diunggah ke Supabase!');
                 fileInput.value = '';
@@ -727,8 +729,6 @@
                 if (error) {
                     alert('Gagal mengupdate posisi: ' + error.message);
                     marker.setLatLng([item.lat, item.lng]);
-                } else {
-                    loadObjectsFromDB(); // Pembaruan langsung tanpa refresh
                 }
             });
 
@@ -816,21 +816,13 @@
             else if (currentObj?.title?.startsWith('[PoleExt]')) prefix = '[PoleExt] ';
 
             const { error } = await supabaseClient.from('survey_objects').update({ title: prefix + newTitle.trim() }).eq('id', id);
-            if (error) {
-                alert('Gagal mengedit: ' + error.message);
-            } else {
-                loadObjectsFromDB(); // Pembaruan langsung tanpa refresh
-            }
+            if (error) alert('Gagal mengedit: ' + error.message);
         };
 
         window.deleteObject = async (id) => {
             if (confirm('Yakin ingin menghapus titik permanen dari Supabase?')) {
                 const { error } = await supabaseClient.from('survey_objects').delete().eq('id', id);
-                if (error) {
-                    alert('Gagal menghapus: ' + error.message);
-                } else {
-                    loadObjectsFromDB(); // Pembaruan langsung tanpa refresh
-                }
+                if (error) alert('Gagal menghapus: ' + error.message);
             }
         };
 
@@ -967,7 +959,6 @@
                 alert('Gagal menyimpan objek: ' + error.message);
             } else {
                 closeSurveyModal();
-                loadObjectsFromDB(); // Pembaruan langsung tanpa refresh
             }
         };
 
