@@ -203,11 +203,11 @@
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return String(unsafe)
-                .replace(/&/g, "&")
-                .replace(/</g, "<")
-                .replace(/>/g, ">")
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, "'");
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
 
         // ==========================================
@@ -437,7 +437,12 @@
         const sidebarToggle = document.getElementById('sidebar-toggle');
         const sidebarClose = document.getElementById('sidebar-close');
 
-        function toggleSidebar() { sidebar.classList.toggle('-translate-x-full'); }
+        function toggleSidebar() { 
+            sidebar.classList.toggle('-translate-x-full');
+            setTimeout(() => {
+                if (window.map) window.map.invalidateSize();
+            }, 300);
+        }
         sidebarToggle.addEventListener('click', toggleSidebar);
         sidebarClose.addEventListener('click', toggleSidebar);
 
@@ -588,7 +593,10 @@
 
         document.getElementById('boundary-select').addEventListener('change', (e) => {
             loadBoundaryToMap(e.target.value);
-            if (window.innerWidth < 768) sidebar.classList.add('-translate-x-full');
+            if (window.innerWidth < 768) {
+                sidebar.classList.add('-translate-x-full');
+                setTimeout(() => { if (window.map) window.map.invalidateSize(); }, 300);
+            }
         });
 
         // ==========================================
@@ -797,7 +805,10 @@
 
         window.focusObject = (lat, lng) => {
             map.setView([lat, lng], 18);
-            if (window.innerWidth < 768) sidebar.classList.add('-translate-x-full');
+            if (window.innerWidth < 768) {
+                sidebar.classList.add('-translate-x-full');
+                setTimeout(() => { if (window.map) window.map.invalidateSize(); }, 300);
+            }
         };
 
         window.editObject = async (id, currentTitle) => {
