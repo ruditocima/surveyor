@@ -990,7 +990,7 @@
         });
 
         // ==========================================
-        // 7. EXPORT KMZ LOGIC (FIXED & ENHANCED)
+        // 7. EXPORT KMZ LOGIC (DISEMPURNAKAN)
         // ==========================================
         function geometryToKml(geom) {
             if (!geom || !geom.type || !geom.coordinates) return '';
@@ -1050,62 +1050,106 @@
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>Hasil Survey - ${boundaryData ? escapeHtml(boundaryData.name) : 'Export'}</name>
+    
+    <!-- Styles -->
     <Style id="iconHomepass">
-      <IconStyle>
-        <scale>1.1</scale>
-        <Icon><href>http://maps.google.com/mapfiles/kml/paddle/blu-circle.png</href></Icon>
-      </IconStyle>
+      <IconStyle><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/blu-circle.png</href></Icon></IconStyle>
     </Style>
     <Style id="iconPoleExt">
-      <IconStyle>
-        <scale>1.0</scale>
-        <Icon><href>http://maps.google.com/mapfiles/kml/paddle/wht-circle.png</href></Icon>
-      </IconStyle>
+      <IconStyle><scale>1.0</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/wht-circle.png</href></Icon></IconStyle>
     </Style>
-    <Style id="iconPoleNew">
-      <IconStyle>
-        <scale>1.0</scale>
-        <Icon><href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href></Icon>
-      </IconStyle>
+    <Style id="iconPoleNewT7_25">
+      <IconStyle><scale>1.0</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/purple-circle.png</href></Icon></IconStyle>
+    </Style>
+    <Style id="iconPoleNewT7_3">
+      <IconStyle><scale>1.0</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/ltblu-circle.png</href></Icon></IconStyle>
+    </Style>
+    <Style id="iconPoleNewT7_4">
+      <IconStyle><scale>1.0</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/grn-circle.png</href></Icon></IconStyle>
+    </Style>
+    <Style id="iconPoleNewT9_4">
+      <IconStyle><scale>1.0</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href></Icon></IconStyle>
     </Style>
     <Style id="boundaryStyle">
-      <PolyStyle><color>4Df6823b</color><fill>1</fill><outline>1</outline></Style>
+      <PolyStyle><color>4Df6823b</color><fill>1</fill><outline>1</outline></PolyStyle>
       <LineStyle><color>fff6823b</color><width>2</width></LineStyle>
-    </Style>`;
+    </Style>
+
+    <!-- Folder: Area Boundary -->
+    <Folder>
+      <name>Area Boundary</name>`;
 
                 if (boundaryData?.geojson?.features) {
                     boundaryData.geojson.features.forEach(f => {
                         const geomXml = geometryToKml(f.geometry);
                         if (geomXml) {
                             kmlContent += `
-    <Placemark>
-      <name>${escapeHtml(f.properties?.name || 'Area Boundary')}</name>
-      <styleUrl>#boundaryStyle</styleUrl>
-      ${geomXml}
-    </Placemark>`;
+      <Placemark>
+        <name>${escapeHtml(f.properties?.name || 'Boundary Geometry')}</name>
+        <styleUrl>#boundaryStyle</styleUrl>
+        ${geomXml}
+      </Placemark>`;
                         }
                     });
                 }
 
-                allData.forEach(item => {
-                    const parsed = getObjectTypeAndCleanName(item.title);
-                    let styleUrl = '#iconHomepass';
-                    if (parsed.type === 'PoleNew') {
-                        styleUrl = '#iconPoleNew';
-                    } else if (parsed.type === 'PoleExt') {
-                        styleUrl = '#iconPoleExt';
-                    }
+                kmlContent += `
+    </Folder>`;
 
+                const homepassObjects = allData.filter(item => getObjectTypeAndCleanName(item.title).type === 'Homepass');
+                const poleObjects = allData.filter(item => getObjectTypeAndCleanName(item.title).type.startsWith('Pole'));
+
+                // Folder: Homepass
+                kmlContent += `
+    <Folder>
+      <name>Homepass (${homepassObjects.length})</name>`;
+
+                homepassObjects.forEach(item => {
+                    const parsed = getObjectTypeAndCleanName(item.title);
                     kmlContent += `
-    <Placemark>
-      <name>${escapeHtml(parsed.cleanTitle)}</name>
-      <description><![CDATA[Kategori: ${escapeHtml(parsed.type)}<br>Surveyor: ${escapeHtml(item.surveyor)}<br>Waktu: ${escapeHtml(item.timestamp)}]]></description>
-      <styleUrl>${styleUrl}</styleUrl>
-      <Point><coordinates>${item.lng},${item.lat},0</coordinates></Point>
-    </Placemark>`;
+      <Placemark>
+        <name>${escapeHtml(parsed.cleanTitle)}</name>
+        <description><![CDATA[<b>Kategori:</b> Homepass<br><b>Surveyor:</b> ${escapeHtml(item.surveyor)}<br><b>Waktu:</b> ${escapeHtml(item.timestamp)}]]></description>
+        <styleUrl>#iconHomepass</styleUrl>
+        <Point><coordinates>${item.lng},${item.lat},0</coordinates></Point>
+      </Placemark>`;
                 });
 
                 kmlContent += `
+    </Folder>`;
+
+                // Folder: Pole
+                kmlContent += `
+    <Folder>
+      <name>Pole (${poleObjects.length})</name>`;
+
+                poleObjects.forEach(item => {
+                    const parsed = getObjectTypeAndCleanName(item.title);
+                    let styleUrl = '#iconPoleNewT9_4';
+                    const t = parsed.cleanTitle;
+                    if (parsed.type === 'PoleExt') {
+                        styleUrl = '#iconPoleExt';
+                    } else if (t.includes('T7-2,5')) {
+                        styleUrl = '#iconPoleNewT7_25';
+                    } else if (t.includes('T7-3')) {
+                        styleUrl = '#iconPoleNewT7_3';
+                    } else if (t.includes('T7-4')) {
+                        styleUrl = '#iconPoleNewT7_4';
+                    } else if (t.includes('T9-4')) {
+                        styleUrl = '#iconPoleNewT9_4';
+                    }
+
+                    kmlContent += `
+      <Placemark>
+        <name>${escapeHtml(parsed.cleanTitle)}</name>
+        <description><![CDATA[<b>Kategori:</b> ${escapeHtml(parsed.type)}<br><b>Surveyor:</b> ${escapeHtml(item.surveyor)}<br><b>Waktu:</b> ${escapeHtml(item.timestamp)}]]></description>
+        <styleUrl>${styleUrl}</styleUrl>
+        <Point><coordinates>${item.lng},${item.lat},0</coordinates></Point>
+      </Placemark>`;
+                });
+
+                kmlContent += `
+    </Folder>
   </Document>
 </kml>`;
 
